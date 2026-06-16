@@ -1,5 +1,6 @@
 use crate::channel::{ControlChannel, IncomingMsg};
 use crate::discovery::DeviceDiscovery;
+use crate::sync::ProgressSync;
 use crate::transfer::{connect_data, TransferServer, TransferStats, send_file, receive_file};
 use crate::types::*;
 use anyhow::Result;
@@ -77,11 +78,10 @@ impl TransferEngine {
                     ControlMessage::ConnectRequest { session_id, file_name, file_size, file_count, sender_port, .. } => {
                         let peer_ip = peer_addr.ip().to_string();
                         let peer_id = format!("{}:{}", peer_ip, sender_port);
-                        let mut t = transfers_clone.lock().await;
-                        t.insert(session_id.clone(), TransferSession {
+                        let session = TransferSession {
                             id: session_id.clone(),
                             peer_id: peer_id.clone(),
-                            peer_name: peer_ip,
+                            peer_name: peer_ip.clone(),
                             file_name: file_name.clone(),
                             file_size: *file_size,
                             file_count: *file_count,
@@ -91,8 +91,10 @@ impl TransferEngine {
                             speed: 0.0,
                             hash: String::new(),
                             created_at: chrono::Utc::now().to_rfc3339(),
-                        });
-                        let _ = app_clone.emit("transfer-request", &session_id);
+                        };
+                        let mut t = transfers_clone.lock().await;
+                        t.insert(session_id.clone(), session.clone());
+                        let _ = app_clone.emit("transfer-request", &session);
                     }
                     ControlMessage::Progress { session_id, bytes_sent, speed } => {
                         let mut t = transfers_clone.lock().await;
@@ -246,8 +248,35 @@ impl TransferEngine {
 
         let mut data_stream = connect_data(&peer.host, data_port).await?;
 
-        let stats = TransferStats::new(file_size);
-        let hash = send_file(&mut data_stream, &path, &stats).await?;
+        let stats = Arc::new(TransferStats::new(file_size));
+        let progress_sync = ProgressSync::new(
+            session_id.clone(),
+            control_tx.clone(),
+            stats.bytes_sent.clone(),
+            file_size,
+        );
+        progress_sync.start().await;
+
+        let app_clone_progress = app_handle.clone();
+        let sid_progress = session_id.clone();
+        let stats_clone = stats.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_millis(SYNC_INTERVAL_MS)).await;
+                let current = *stats_clone.bytes_sent.lock().await;
+                let speed = stats_clone.speed().await;
+                let _ = app_clone_progress.emit("transfer-progress", &serde_json::json!({
+                    "id": sid_progress,
+                    "bytes_sent": current,
+                    "speed": speed,
+                }));
+                if current >= file_size {
+                    break;
+                }
+            }
+        });
+
+        let hash = send_file(&mut data_stream, &path, &stats.as_ref()).await?;
 
         control_tx.send(ControlMessage::Complete {
             session_id: session_id.clone(),

@@ -134,11 +134,18 @@ async fn accept_transfer(
 }
 
 #[tauri::command]
-async fn cancel_transfer(state: State<'_, AppState>, session_id: String) -> Result<(), String> {
-    let mut transfers = state.transfers.lock().await;
-    if let Some(session) = transfers.get_mut(&session_id) {
-        session.status = TransferStatus::Cancelled;
+async fn cancel_transfer(
+    state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+    session_id: String,
+) -> Result<(), String> {
+    {
+        let mut transfers = state.transfers.lock().await;
+        if let Some(session) = transfers.get_mut(&session_id) {
+            session.status = TransferStatus::Cancelled;
+        }
     }
+    let _ = app_handle.emit("transfer-cancelled", &session_id);
     Ok(())
 }
 
