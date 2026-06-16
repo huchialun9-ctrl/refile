@@ -91,61 +91,69 @@ function App() {
   }, [darkMode])
 
   useEffect(() => {
-    invoke('start_discovery').catch(() => {})
+    try { invoke('start_discovery').catch(() => {}) } catch {}
 
     const unsubs: (() => void)[] = []
 
-    listen<DeviceInfo[]>('devices-update', e => {
-      setDevices(e.payload)
-      if (e.payload.length > 0) setConnectionStatus('green')
-    }).then(fn => unsubs.push(fn))
+    const safeListen = <T,>(event: string, handler: (payload: T) => void) => {
+      try {
+        listen<T>(event, e => handler(e.payload))
+          .then(fn => unsubs.push(fn))
+          .catch(() => {})
+      } catch {}
+    }
 
-    listen<TransferSession>('transfer-request', e => {
-      setTransfers(prev => ({ ...prev, [e.payload.id]: e.payload }))
-      setPendingSession(e.payload)
-    }).then(fn => unsubs.push(fn))
+    safeListen<DeviceInfo[]>('devices-update', payload => {
+      setDevices(payload)
+      if (payload.length > 0) setConnectionStatus('green')
+    })
 
-    listen<{id: string; bytes_sent: number; speed: number}>('transfer-progress', e => {
-      const { id, bytes_sent, speed } = e.payload
+    safeListen<TransferSession>('transfer-request', payload => {
+      setTransfers(prev => ({ ...prev, [payload.id]: payload }))
+      setPendingSession(payload)
+    })
+
+    safeListen<{id: string; bytes_sent: number; speed: number}>('transfer-progress', payload => {
+      const { id, bytes_sent, speed } = payload
       setTransfers(prev => {
         const s = prev[id]
         if (!s) return prev
         return { ...prev, [id]: { ...s, status: 'Transferring', progress: s.file_size > 0 ? bytes_sent / s.file_size : 0, speed } }
       })
-    }).then(fn => unsubs.push(fn))
+    })
 
-    listen<string>('transfer-complete', e => {
+    safeListen<string>('transfer-complete', payload => {
       setTransfers(prev => {
-        const s = prev[e.payload]
+        const s = prev[payload]
         if (!s) return prev
-        return { ...prev, [e.payload]: { ...s, status: 'Completed', progress: 1 } }
+        return { ...prev, [payload]: { ...s, status: 'Completed', progress: 1 } }
       })
-      setRecentlyCompleted(prev => new Set(prev).add(e.payload))
-      setPendingSession(prev => prev?.id === e.payload ? null : prev)
+      setRecentlyCompleted(prev => new Set(prev).add(payload))
+      setPendingSession(prev => prev?.id === payload ? null : prev)
       setTimeout(() => setRecentlyCompleted(prev => {
         const next = new Set(prev)
-        next.delete(e.payload)
+        next.delete(payload)
         return next
       }), 2000)
-    }).then(fn => unsubs.push(fn))
+    })
 
-    listen<{id: string; message: string}>('transfer-error', e => {
+    safeListen<{id: string; message: string}>('transfer-error', payload => {
       setTransfers(prev => {
-        const s = prev[e.payload.id]
+        const s = prev[payload.id]
         if (!s) return prev
-        return { ...prev, [e.payload.id]: { ...s, status: { Failed: e.payload.message } } }
+        return { ...prev, [payload.id]: { ...s, status: { Failed: payload.message } } }
       })
-      setPendingSession(prev => prev?.id === e.payload.id ? null : prev)
-    }).then(fn => unsubs.push(fn))
+      setPendingSession(prev => prev?.id === payload.id ? null : prev)
+    })
 
-    listen<string>('transfer-cancelled', e => {
+    safeListen<string>('transfer-cancelled', payload => {
       setTransfers(prev => {
-        const s = prev[e.payload]
+        const s = prev[payload]
         if (!s) return prev
-        return { ...prev, [e.payload]: { ...s, status: 'Cancelled' } }
+        return { ...prev, [payload]: { ...s, status: 'Cancelled' } }
       })
-      setPendingSession(prev => prev?.id === e.payload ? null : prev)
-    }).then(fn => unsubs.push(fn))
+      setPendingSession(prev => prev?.id === payload ? null : prev)
+    })
 
     return () => { unsubs.forEach(fn => fn()) }
   }, [])
