@@ -145,6 +145,9 @@ async fn cancel_transfer(
             session.status = TransferStatus::Cancelled;
         }
     }
+    if let Some(ref engine) = *state.engine.lock().await {
+        engine.cancel_session(&session_id).await;
+    }
     let _ = app_handle.emit("transfer-cancelled", &session_id);
     Ok(())
 }
@@ -164,6 +167,7 @@ pub fn run() {
             device_name: whoami::fallible::hostname().unwrap_or_else(|_| "unknown".to_string()),
             transfers: Arc::new(Mutex::new(HashMap::new())),
         })
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

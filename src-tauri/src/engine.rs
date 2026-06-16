@@ -7,7 +7,7 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::sync::Mutex;
@@ -21,6 +21,7 @@ pub struct TransferEngine {
     data_port: Arc<Mutex<u16>>,
     transfer_server: Arc<Mutex<Option<Arc<TransferServer>>>>,
     pending_responses: PendingResponses,
+    session_channels: Arc<Mutex<HashMap<String, mpsc::Sender<ControlMessage>>>>,
 }
 
 impl TransferEngine {
@@ -32,11 +33,19 @@ impl TransferEngine {
             data_port: Arc::new(Mutex::new(0)),
             transfer_server: Arc::new(Mutex::new(None)),
             pending_responses: Arc::new(Mutex::new(HashMap::new())),
+            session_channels: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     pub fn control_port(&self) -> Arc<Mutex<u16>> {
         self.control_port.clone()
+    }
+
+    pub async fn cancel_session(&self, session_id: &str) {
+        let mut sc = self.session_channels.lock().await;
+        if let Some(tx) = sc.remove(session_id) {
+            let _ = tx.send(ControlMessage::Cancel { session_id: session_id.to_string() }).await;
+        }
     }
 
     pub fn device_id(&self) -> &str {
@@ -178,12 +187,13 @@ impl TransferEngine {
         let transfers_clone = transfers.clone();
         let pending = self.pending_responses.clone();
         let my_port = *self.control_port.lock().await;
+        let s_channels = self.session_channels.clone();
 
         tokio::spawn(async move {
             if let Err(e) = Self::do_send(
                 app_handle.clone(),
                 peer, file_path, sid.clone(), transfers_clone.clone(),
-                pending, my_port,
+                pending, my_port, s_channels,
             ).await {
                 let mut t = transfers_clone.lock().await;
                 if let Some(s) = t.get_mut(&sid) {
@@ -206,12 +216,17 @@ impl TransferEngine {
         transfers: Arc<Mutex<HashMap<String, TransferSession>>>,
         pending: PendingResponses,
         my_port: u16,
+        session_channels: Arc<Mutex<HashMap<String, mpsc::Sender<ControlMessage>>>>,
     ) -> Result<()> {
         let path = Path::new(&file_path);
         let file_size = tokio::fs::metadata(&path).await.map(|m| m.len()).unwrap_or(0);
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("unknown").to_string();
 
         let (control_tx, _control_rx) = ControlChannel::connect(&peer.host, peer.port).await?;
+        {
+            let mut sc = session_channels.lock().await;
+            sc.insert(session_id.clone(), control_tx.clone());
+        }
 
         let (resp_tx, resp_rx) = oneshot::channel();
         {
@@ -343,6 +358,10 @@ impl TransferEngine {
             }).await.ok();
 
             let srv_arc = self.transfer_server.lock().await.as_ref().cloned().unwrap();
+            {
+                let mut sc = self.session_channels.lock().await;
+                sc.insert(session_id.clone(), ctrl_tx.clone());
+            }
 
             let sid = session_id.clone();
             let transfers_clone = transfers.clone();
@@ -386,7 +405,8 @@ impl TransferEngine {
         let file_name = session_info.as_ref().map(|s| s.file_name.clone()).unwrap_or_else(|| "unknown".to_string());
         let file_size = session_info.as_ref().map(|s| s.file_size).unwrap_or(0);
 
-        let dest_path = Path::new("downloads").join(&file_name);
+        let downloads = app_handle.path().app_data_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
+        let dest_path = downloads.join("downloads").join(&file_name);
         let hash = receive_file(&mut buf_reader, &dest_path, file_size).await?;
 
         let mut t = transfers.lock().await;
