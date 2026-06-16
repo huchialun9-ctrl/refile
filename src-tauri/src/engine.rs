@@ -368,8 +368,8 @@ impl TransferEngine {
 
             tokio::spawn(async move {
                 if let Err(e) = Self::do_receive(
-                    app_handle.clone(), sid.clone(), session, transfers_clone.clone(),
-                    srv_arc, ctrl_tx,
+                    app_handle.clone(), sid.clone(), transfers_clone.clone(),
+                    srv_arc,
                 ).await {
                     let mut t = transfers_clone.lock().await;
                     if let Some(s) = t.get_mut(&sid) {
@@ -388,10 +388,8 @@ impl TransferEngine {
     async fn do_receive(
         app_handle: tauri::AppHandle,
         session_id: String,
-        _session: TransferSession,
         transfers: Arc<Mutex<HashMap<String, TransferSession>>>,
         srv: Arc<TransferServer>,
-        _ctrl_tx: mpsc::Sender<ControlMessage>,
     ) -> Result<()> {
         let data_stream = srv.accept().await?;
         let (reader, _) = tokio::io::split(data_stream);
