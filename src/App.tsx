@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import type { DeviceInfo, TransferSession } from './types'
@@ -73,13 +73,12 @@ function App() {
   const [transfers, setTransfers] = useState<Record<string, TransferSession>>({})
   const [selectedPeer, setSelectedPeer] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [incoming, setIncoming] = useState<string[]>([])
   const [pendingSession, setPendingSession] = useState<TransferSession | null>(null)
   const [darkMode, setDarkMode] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<'green' | 'yellow'>('yellow')
   const [showTextShare, setShowTextShare] = useState(false)
   const [textToSend, setTextToSend] = useState('')
-  const [deviceName, setDeviceName] = useState('')
+  const [deviceName] = useState('')
   const [recentlyCompleted, setRecentlyCompleted] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -103,7 +102,6 @@ function App() {
 
     listen<TransferSession>('transfer-request', e => {
       setTransfers(prev => ({ ...prev, [e.payload.id]: e.payload }))
-      setIncoming(prev => [...prev, e.payload.id])
       setPendingSession(e.payload)
     }).then(fn => unsubs.push(fn))
 
@@ -123,7 +121,6 @@ function App() {
         return { ...prev, [e.payload]: { ...s, status: 'Completed', progress: 1 } }
       })
       setRecentlyCompleted(prev => new Set(prev).add(e.payload))
-      setIncoming(prev => prev.filter(id => id !== e.payload))
       setPendingSession(prev => prev?.id === e.payload ? null : prev)
       setTimeout(() => setRecentlyCompleted(prev => {
         const next = new Set(prev)
@@ -138,7 +135,6 @@ function App() {
         if (!s) return prev
         return { ...prev, [e.payload.id]: { ...s, status: { Failed: e.payload.message } } }
       })
-      setIncoming(prev => prev.filter(id => id !== e.payload.id))
       setPendingSession(prev => prev?.id === e.payload.id ? null : prev)
     }).then(fn => unsubs.push(fn))
 
@@ -148,7 +144,6 @@ function App() {
         if (!s) return prev
         return { ...prev, [e.payload]: { ...s, status: 'Cancelled' } }
       })
-      setIncoming(prev => prev.filter(id => id !== e.payload))
       setPendingSession(prev => prev?.id === e.payload ? null : prev)
     }).then(fn => unsubs.push(fn))
 
@@ -166,13 +161,11 @@ function App() {
 
   const handleAccept = useCallback(async (id: string) => {
     await invoke('accept_transfer', { sessionId: id })
-    setIncoming(prev => prev.filter(x => x !== id))
     setPendingSession(null)
   }, [])
 
   const handleReject = useCallback(async (id: string) => {
     await invoke('cancel_transfer', { sessionId: id })
-    setIncoming(prev => prev.filter(x => x !== id))
     setPendingSession(null)
   }, [])
 
