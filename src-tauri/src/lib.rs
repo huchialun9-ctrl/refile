@@ -1,39 +1,76 @@
 mod channel;
 mod crypto;
 mod discovery;
+mod engine;
 mod sync;
 mod transfer;
 mod types;
 
 use crate::discovery::DeviceDiscovery;
-use crate::types::{DeviceInfo, TransferDirection, TransferSession, TransferStatus};
+use crate::engine::TransferEngine;
+use crate::types::{DeviceInfo, TransferSession, TransferStatus};
 use std::collections::HashMap;
-use tauri::State;
+use std::sync::Arc;
+use std::time::Duration;
+use tauri::{Emitter, State};
 use tokio::sync::Mutex;
 
 pub struct AppState {
-    pub discovery: Mutex<Option<DeviceDiscovery>>,
+    pub discovery: Mutex<Option<Arc<Mutex<DeviceDiscovery>>>>,
+    pub engine: Mutex<Option<TransferEngine>>,
     pub device_id: String,
     pub device_name: String,
-    pub transfers: Mutex<HashMap<String, TransferSession>>,
+    pub transfers: Arc<Mutex<HashMap<String, TransferSession>>>,
 }
 
 #[tauri::command]
 async fn start_discovery(
     state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let name = whoami::fallible::hostname().unwrap_or_else(|_| "unknown".to_string());
     let device_id = uuid::Uuid::new_v4().to_string();
 
     let discovery = DeviceDiscovery::new().map_err(|e| e.to_string())?;
-    let port = 9876;
-    discovery
-        .register(&name, &name, port, &device_id)
-        .map_err(|e| e.to_string())?;
     discovery.start_browsing().map_err(|e| e.to_string())?;
 
+    let discovery_arc = Arc::new(Mutex::new(discovery));
+    let devices_map = {
+        let d = discovery_arc.lock().await;
+        d.get_devices()
+    };
+
+    let engine = TransferEngine::new(device_id.clone(), name.clone());
+    let app_clone = app_handle.clone();
+    let transfers = state.transfers.clone();
+    engine
+        .start(app_clone, discovery_arc.clone(), transfers)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let ctrl_port = *engine.control_port().lock().await;
+    {
+        let d = discovery_arc.lock().await;
+        d.register(&name, &name, ctrl_port, &device_id)
+            .map_err(|e| e.to_string())?;
+    }
+
+    let app_clone = app_handle.clone();
+    let devices_clone = devices_map.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(2)).await;
+            let map = devices_clone.lock().await;
+            let list: Vec<DeviceInfo> = map.values().cloned().collect();
+            let _ = app_clone.emit("devices-update", &list);
+        }
+    });
+
     let mut d = state.discovery.lock().await;
-    *d = Some(discovery);
+    *d = Some(discovery_arc);
+
+    let mut e = state.engine.lock().await;
+    *e = Some(engine);
 
     Ok(())
 }
@@ -42,9 +79,10 @@ async fn start_discovery(
 async fn get_devices(state: State<'_, AppState>) -> Result<Vec<DeviceInfo>, String> {
     let d = state.discovery.lock().await;
     if let Some(ref discovery) = *d {
-        let map = discovery.get_devices();
-        let devices = map.lock().await;
-        Ok(devices.values().cloned().collect())
+        let map = discovery.lock().await;
+        let devices = map.get_devices();
+        let list = devices.lock().await;
+        Ok(list.values().cloned().collect())
     } else {
         Ok(vec![])
     }
@@ -53,29 +91,26 @@ async fn get_devices(state: State<'_, AppState>) -> Result<Vec<DeviceInfo>, Stri
 #[tauri::command]
 async fn send_file(
     state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
     peer_id: String,
     file_path: String,
 ) -> Result<String, String> {
-    let session_id = uuid::Uuid::new_v4().to_string();
-    let session = TransferSession {
-        id: session_id.clone(),
-        peer_id,
-        peer_name: String::new(),
-        file_name: file_path.split('\\').last().unwrap_or("unknown").to_string(),
-        file_size: 0,
-        file_count: 1,
-        direction: TransferDirection::Send,
-        status: TransferStatus::Pending,
-        progress: 0.0,
-        speed: 0.0,
-        hash: String::new(),
-        created_at: chrono::Utc::now().to_rfc3339(),
+    let engine = state.engine.lock().await;
+    let engine_ref = engine.as_ref().ok_or("Engine not started")?;
+
+    let peer = {
+        let d = state.discovery.lock().await;
+        let disc = d.as_ref().ok_or("Discovery not started")?;
+        let map = disc.lock().await;
+        let devices = map.get_devices();
+        let list = devices.lock().await;
+        list.get(&peer_id).cloned().ok_or("Peer not found")?
     };
 
-    let mut transfers = state.transfers.lock().await;
-    transfers.insert(session_id.clone(), session);
-
-    Ok(session_id)
+    engine_ref
+        .initiate_send(app_handle, peer, file_path, state.transfers.clone())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -85,12 +120,17 @@ async fn get_transfers(state: State<'_, AppState>) -> Result<Vec<TransferSession
 }
 
 #[tauri::command]
-async fn accept_transfer(state: State<'_, AppState>, session_id: String) -> Result<(), String> {
-    let mut transfers = state.transfers.lock().await;
-    if let Some(session) = transfers.get_mut(&session_id) {
-        session.status = TransferStatus::Transferring;
-    }
-    Ok(())
+async fn accept_transfer(
+    state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+    session_id: String,
+) -> Result<(), String> {
+    let engine = state.engine.lock().await;
+    let engine_ref = engine.as_ref().ok_or("Engine not started")?;
+    engine_ref
+        .accept_incoming(app_handle, session_id, state.transfers.clone())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -112,9 +152,10 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AppState {
             discovery: Mutex::new(None),
+            engine: Mutex::new(None),
             device_id: get_device_id(),
             device_name: whoami::fallible::hostname().unwrap_or_else(|_| "unknown".to_string()),
-            transfers: Mutex::new(HashMap::new()),
+            transfers: Arc::new(Mutex::new(HashMap::new())),
         })
         .setup(|app| {
             if cfg!(debug_assertions) {

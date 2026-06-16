@@ -55,10 +55,13 @@ pub enum ControlMessage {
         file_name: String,
         file_size: u64,
         file_count: u32,
+        sender_host: String,
+        sender_port: u16,
     },
     ConnectResponse {
         session_id: String,
         accepted: bool,
+        data_port: u16,
     },
     Progress {
         session_id: String,
