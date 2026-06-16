@@ -181,6 +181,15 @@
 }
 
 /* ── Timeline ── */
+.main-upload {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  padding: 12px 0;
+  min-height: 180px;
+}
+
 .timeline {
   flex: 1;
   overflow-y: auto;

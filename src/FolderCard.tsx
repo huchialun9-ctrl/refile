@@ -35,7 +35,8 @@ export default function FolderCard({ transfers, selectedPeer, onDrop }: Props) {
       if (selected) {
         await invoke('send_file', { peerId: selectedPeer, filePath: selected })
       }
-    } catch {
+    } catch (e) {
+      console.warn('Tauri dialog not available, using browser fallback:', e)
       inputRef.current?.click()
     }
   }, [selectedPeer])

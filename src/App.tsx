@@ -218,7 +218,7 @@ function App() {
           <button className="topbar-btn" onClick={() => setShowTextShare(true)} title="傳送文字">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </button>
-          <button className="topbar-btn" title="QR Code 連線">
+          <button className="topbar-btn" title="QR Code 連線" onClick={() => alert('QR Code 功能開發中')}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="4" height="4"/></svg>
           </button>
           <button className="topbar-btn" onClick={() => setDarkMode(!darkMode)} title={darkMode ? '淺色模式' : '深色模式'}>
@@ -311,11 +311,13 @@ function App() {
           </span>}
         </div>
 
-        <FolderCard
-          transfers={transferList}
-          selectedPeer={selectedPeer !== null}
-          onDrop={handleFileDrop}
-        />
+        <div className="main-upload">
+          <FolderCard
+            transfers={transferList}
+            selectedPeer={selectedPeer !== null}
+            onDrop={handleFileDrop}
+          />
+        </div>
 
         <div className="timeline">
           {transferList.length === 0 && <div className="empty">尚無傳輸記錄</div>}
