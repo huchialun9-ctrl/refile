@@ -304,10 +304,12 @@ export default function WebApp() {
     for (const file of files) {
       const id = crypto.randomUUID().slice(0, 8)
       speedMap.current[id] = { bytes: 0, ts: Date.now() }
+      const blobUrl = URL.createObjectURL(file)
       setTransfers(prev => [...prev, {
         id, name: file.name, size: file.size,
         direction: 'send', progress: 0, speed: 0,
         status: 'transferring', createdAt: new Date().toISOString(),
+        blobUrl,
       }])
       try {
         await peer.sendFile(file, (sent, total) => {
@@ -498,257 +500,84 @@ export default function WebApp() {
         </div>
       </div>
 
-      <div className="webapp-layout">
-        {/* ── Left sidebar ── */}
-        <aside className="webapp-panel">
+      <main className="webapp-main">
+        <div className="webapp-bg"></div>
+        <div className="webapp-main-scroll">
+          {/* ── Controls bar ── */}
+          <div className="webapp-controls">
+            {/* My ID */}
+            <div className="wc-group">
+              <span className="wc-label">我的 ID</span>
+              {sigOk ? (
+                <>
+                  <span className="wc-id">{fmtPeer(peerId)}</span>
+                  <div className="wc-btns">
+                    <button className="wc-btn" onClick={handleCopyId} title="複製 ID">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      {copied ? '已複製' : '複製'}
+                    </button>
+                    <button className="wc-btn" onClick={handleShowQR} title="QR Code">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="4" height="4"/></svg>
+                      QR
+                    </button>
+                    <button className="wc-btn" onClick={handleShareLink} title="分享連結">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                      分享
+                    </button>
+                  </div>
+                </>
+              ) : sigError ? (
+                <span className="wc-err">{sigError}</span>
+              ) : (
+                <span className="wc-muted">正在取得 ID…</span>
+              )}
+            </div>
 
-          {/* My ID */}
-          <div className="webapp-section">
-            <div className="webapp-section-label">我的連線 ID</div>
-            {sigOk ? (
-              <>
-                <div className="webapp-myid">{fmtPeer(peerId)}</div>
-                <div className="webapp-id-btns">
-                  <button className="webapp-idbtn" onClick={handleCopyId}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    複製
-                  </button>
-                  <button className="webapp-idbtn" onClick={handleShowQR}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="4" height="4"/></svg>
-                    QR 碼
-                  </button>
-                  <button className="webapp-idbtn" onClick={handleShareLink}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                    分享
-                  </button>
-                </div>
-                {copied && <div className="webapp-copy-toast">{copyLabel}</div>}
-                <p className="webapp-id-hint">把這個 ID 或連結給另一個人，他貼上去就能連</p>
-              </>
-            ) : (
-              <div className="webapp-id-loading">
-                {sigError ? <span className="webapp-err">{sigError}</span> : <span className="webapp-muted">正在取得 ID…</span>}
-              </div>
-            )}
-          </div>
-
-          {/* Connect to remote */}
-          <div className="webapp-section">
-            <div className="webapp-section-label">連到對方</div>
-            {connected ? (
-              <div className="webapp-connected-box">
-                <div className="webapp-connected-row">
+            {/* Connect */}
+            <div className="wc-group">
+              <span className="wc-label">連到對方</span>
+              {connected ? (
+                <div className="wc-connected">
                   <span className="status-dot-indicator green" />
-                  <span className="webapp-connected-id">{fmtPeer(remotePeerId)}</span>
+                  <span className="wc-remote-id">{fmtPeer(remotePeerId)}</span>
+                  <button className="wc-disc-btn" onClick={handleDisconnect}>斷開</button>
                 </div>
-                <button className="webapp-disc-btn" onClick={handleDisconnect}>斷開</button>
-              </div>
-            ) : (
-              <div className="webapp-connect-form">
-                <input
-                  className="webapp-input"
-                  placeholder="貼上對方的 8 碼 ID，如 ABCD-1234"
-                  value={inputId}
-                  onChange={e => setInputId(e.target.value.toUpperCase().replace(/[^A-F0-9-]/g, ''))}
-                  onKeyDown={e => e.key === 'Enter' && handleConnect()}
-                  maxLength={9}
-                  disabled={connecting || !sigOk}
-                />
-                <button className="webapp-connect-btn" onClick={handleConnect}
-                  disabled={connecting || !sigOk || inputId.replace('-', '').length < 8}>
-                  {connecting ? '連線中…' : '連線'}
-                </button>
-              </div>
-            )}
-            {sigError && <div className="webapp-err">{sigError}</div>}
-          </div>
-
-          {/* Online peers */}
-          {onlinePeers.length > 0 && (
-            <div className="webapp-section">
-              <div className="webapp-section-label">也在線上的 ({onlinePeers.length})</div>
-              <div className="webapp-bt-list">
-                {onlinePeers.map(p => (
-                  <div key={p.id} className="webapp-bt-item online-peer" onClick={() => {
-                    if (!connected && !connecting) {
-                      setInputId(p.id)
-                      doConnect(peerId, p.id, sigRef.current!)
-                    }
-                  }}>
-                    <span className="status-dot-indicator green" />
-                    <div className="webapp-bt-info">
-                      <span className="webapp-bt-name">{p.name || '不知道誰'}</span>
-                      <span className="webapp-bt-peer">{fmtPeer(p.id)}</span>
-                    </div>
-                    {connected && remotePeerId === p.id && (
-                      <span className="webapp-bt-connected-tag">已連線</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Bluetooth scan */}
-          <div className="webapp-section">
-            <div className="webapp-section-label">用藍牙找附近裝置</div>
-            {!navigator.bluetooth ? (
-              <div className="webapp-ble-unavail">
-                <p className="webapp-id-hint">這台電腦沒有藍牙，或者瀏覽器不給用。</p>
-                <p className="webapp-id-hint" style={{marginTop:6}}>沒關係，直接在上面手動輸入 ID 就能連，不用藍牙。</p>
-              </div>
-            ) : (
-              <>
-                <p className="webapp-id-hint">掃看看附近有沒有開著桌面版 re/file 的裝置（記得開藍牙）</p>
-                <div className="ble-btn-wrapper">
-                  <button className="ble-spiderverse-btn" onClick={async () => {
-                    setBleStatus(null)
-                    setBtScanning(true)
-                    setBleStatus('⏳ 跳出選單了，挑一個裝置吧')
-                    try {
-                      const rfService = '0000f00d-0000-1000-8000-00805f9b34fb'
-                      const device = await navigator.bluetooth.requestDevice({
-                        filters: [{ services: [rfService] }],
-                        optionalServices: [rfService],
-                      })
-                      if (device) {
-                        const name = device.name || '未知'
-                        const existing = btDevices.find(d => d.id === device.id)
-                        if (!existing) {
-                          setBtDevices(prev => [...prev, {
-                            id: device.id,
-                            name,
-                            connected: false,
-                            deviceRef: device,
-                          }])
-                          setBleStatus(`✅ 找到 ${name} 了，按「取得 ID」讀取連線資訊`)
-                        } else {
-                          setBtDevices(prev => prev.map(d => d.id === device.id ? { ...d, deviceRef: device } : d))
-                          setBleStatus(`✅ ${name} 的連線已更新`)
-                        }
-                        device.addEventListener('gattserverdisconnected', () => {
-                          setBtDevices(prev => prev.map(d => d.id === device.id ? { ...d, connected: false, peerId: undefined } : d))
-                        })
-                      }
-                    } catch (e: any) {
-                      if (e.name === 'NotFoundError') {
-                        setBleStatus('⚠️ 沒選任何裝置 — 如果附近沒有開著 re/file 桌面版的裝置，直接用手動輸入 ID 就好')
-                      } else if (e.name === 'SecurityError') {
-                        setBleStatus('❌ 藍牙要用 HTTPS 才行')
-                      } else {
-                        setBleStatus('❌ 藍牙搜尋失敗: ' + (e.message || e))
-                      }
-                    }
-                    setBtScanning(false)
-                  }} disabled={btScanning}>
-                    <div className="ble-glitch-text">
-                      <span>SEARCH BLE</span>
-                      <div className="ble-glitch-layers">
-                        <div className="ble-glitch-layer ble-layer-1">SEARCH BLE</div>
-                        <div className="ble-glitch-layer ble-layer-2">SEARCH BLE</div>
-                      </div>
-                    </div>
+              ) : (
+                <div className="wc-connect-form">
+                  <input className="wc-input"
+                    placeholder="貼上對方 8 碼 ID"
+                    value={inputId}
+                    onChange={e => setInputId(e.target.value.toUpperCase().replace(/[^A-F0-9-]/g, ''))}
+                    onKeyDown={e => e.key === 'Enter' && handleConnect()}
+                    maxLength={9}
+                    disabled={connecting || !sigOk}
+                  />
+                  <button className="wc-go-btn" onClick={handleConnect}
+                    disabled={connecting || !sigOk || inputId.replace('-', '').length < 8}>
+                    {connecting ? '…' : '連線'}
                   </button>
-                  <div className="ble-noise"></div>
                 </div>
-                {bleStatus && <div className="webapp-ble-status">{bleStatus}</div>}
-              </>
-            )}
-            {btDevices.length > 0 && (
-              <div className="webapp-bt-list">
-                {btDevices.map((d, i) => (
-                  <div key={d.id} className="webapp-bt-item">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/></svg>
-                    <div className="webapp-bt-info">
-                      <span className="webapp-bt-name">{d.name}</span>
-                      {d.peerId && <span className="webapp-bt-peer">ID: {fmtPeer(d.peerId)}</span>}
-                    </div>
-                    <button
-                      className="webapp-bt-connect-btn"
-                      disabled={btConnectingId === d.id || d.connected}
-                      onClick={async () => {
-                        setBtConnectingId(d.id)
-                        try {
-                          const rfService = '0000f00d-0000-1000-8000-00805f9b34fb'
-                          const rfChar = '0000f00e-0000-1000-8000-00805f9b34fb'
-                          const dev = d.deviceRef || await navigator.bluetooth.requestDevice({
-                            filters: [{ services: [rfService] }],
-                            optionalServices: [rfService],
-                          })
-                          const server = dev.gatt
-                          if (!server) { throw new Error('無法連接到 GATT 伺服器') }
-                          const srv = await server.connect()
-                          const service = await srv.getPrimaryService(rfService)
-                          const char = await service.getCharacteristic(rfChar)
-                          const value = await char.readValue()
-                          const decoder = new TextDecoder()
-                          const remoteId = decoder.decode(value).trim()
-                          if (remoteId.length === 8) {
-                            // Try to read device name from name characteristic if available
-                            let deviceName = d.name || ''
-                            if (!deviceName || deviceName === '未知裝置') {
-                              try {
-                                const nameChar = await service.getCharacteristic('0000f00f-0000-1000-8000-00805f9b34fb')
-                                const nameVal = await nameChar.readValue()
-                                const nameStr = decoder.decode(nameVal).trim()
-                                if (nameStr) deviceName = nameStr
-                              } catch {}
-                            }
-                            // Cross-reference with signaling peer list
-                            if ((!deviceName || deviceName === '未知裝置') && onlinePeers.length > 0) {
-                              const match = onlinePeers.find(p => p.id === remoteId)
-                              if (match?.name) deviceName = match.name
-                            }
-                            setInputId(remoteId)
-                            setBtDevices(prev => prev.map(p => p.id === d.id ? {
-                              ...p,
-                              connected: true,
-                              peerId: remoteId,
-                              name: deviceName || p.name,
-                              deviceRef: dev,
-                            } : p))
-                            // Auto-connect if not already connected/connecting
-                            if (!connectedRef.current && !connectingRef.current && sigRef.current && peerId) {
-                              doConnect(peerId, remoteId, sigRef.current)
-                            }
-                          }
-                        } catch (e: any) {
-                          setSigError('藍牙連線失敗: ' + (e.message || e))
-                          setTimeout(() => setSigError(''), 3000)
-                        }
-                        setBtConnectingId('')
-                      }}
-                    >
-                      {btConnectingId === d.id ? '連線中…' : d.connected ? '已連線' : '取得 ID'}
+              )}
+              {sigError && <span className="wc-err">{sigError}</span>}
+            </div>
+
+            {/* Online peers (compact) */}
+            {onlinePeers.length > 0 && (
+              <div className="wc-group wc-online">
+                <span className="wc-label">在線 ({onlinePeers.length})</span>
+                <div className="wc-peer-list">
+                  {onlinePeers.slice(0, 5).map(p => (
+                    <button key={p.id} className={`wc-peer-chip ${connected && remotePeerId === p.id ? 'wc-peer-active' : ''}`}
+                      onClick={() => { if (!connected && !connecting) { setInputId(p.id); doConnect(peerId, p.id, sigRef.current!) } }}
+                      disabled={connected || connecting}>
+                      {p.name || fmtPeer(p.id)}
                     </button>
-                    <button className="webapp-bt-remove"
-                      onClick={() => setBtDevices(prev => prev.filter(p => p.id !== d.id))}>
-                      ✕
-                    </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
-          {/* Instructions */}
-          <div className="webapp-section webapp-how">
-            <div className="webapp-section-label">怎麼用</div>
-            <ol className="webapp-steps">
-              <li>兩邊都打開這個網頁</li>
-              <li>其中一個人複製自己的 ID</li>
-              <li>另一個人把 ID 貼到上面，按「連線」</li>
-              <li>連好之後丟檔案過去就行</li>
-            </ol>
-            <div className="webapp-e2e-note">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              點對點加密 · 檔案不過伺服器
-            </div>
-          </div>
-        </aside>
-
-        {/* ── Main area (centered logo + drop zone) ── */}
-        <main className="webapp-main">
           <div className="webapp-main-center">
 
             {/* Logo */}
@@ -834,8 +663,8 @@ export default function WebApp() {
               </div>
             )}
           </div>
+          </div>
         </main>
-      </div>
 
       {/* Footer */}
       <footer className="webapp-footer">
@@ -977,10 +806,10 @@ function TxItem({ t, onViewText }: { t: WebTransfer; onViewText?: (text: string)
               檢視文字
             </button>
           )}
-          {t.status === 'done' && t.direction === 'receive' && t.blobUrl && !t.isText && (
+          {t.status === 'done' && t.blobUrl && (
             <a href={t.blobUrl} download={t.name} className="webapp-dl-btn">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              再次下載
+              {t.direction === 'send' ? '下載備份' : '再次下載'}
             </a>
           )}
           {t.status === 'error' && <div className="webapp-tx-err">{t.error}</div>}
