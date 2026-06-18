@@ -122,8 +122,7 @@ function App() {
   const [showPrivacy, setShowPrivacy] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
   const [myPeerId] = useState(() => deriveLocalId())
-  const handleShowQRRef = useRef(handleShowQR)
-  handleShowQRRef.current = handleShowQR
+  const handleShowQRRef = useRef<() => void>(() => {})
   const [inputPeerId, setInputPeerId] = useState('')
   const [peerConnecting, setPeerConnecting] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
@@ -469,6 +468,8 @@ function App() {
       setShowQR(true)
     }
   }, [isTauri, myPeerId, sigOk, sigPeerId])
+
+  handleShowQRRef.current = handleShowQR
 
   const handleCopyId = useCallback(() => {
     const id = sigOk && sigPeerId ? sigPeerId : myPeerId
