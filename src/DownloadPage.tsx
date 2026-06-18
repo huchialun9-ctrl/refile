@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface Props {
   darkMode: boolean
@@ -67,6 +67,7 @@ function AssetIcon({ name }: { name: string }) {
   )
 }
 
+// FALLBACK_RELEASES — 每次發布新版本時更新
 const FALLBACK_RELEASES: Release[] = [
   {
     tag_name: 'v0.2.0',
@@ -86,7 +87,20 @@ const COOKIE_KEY = 'reflie_cookie_consent'
 export default function DownloadPage({ darkMode, setDarkMode }: Props) {
   const [releases, setReleases] = useState<Release[]>([])
   const [loading, setLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [showCookie, setShowCookie] = useState(false)
+
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true)
+    const goOffline = () => setIsOnline(false)
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [])
 
   useEffect(() => {
     try {
@@ -104,18 +118,33 @@ export default function DownloadPage({ darkMode, setDarkMode }: Props) {
     document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
   }, [darkMode])
 
+  async function fetchReleases(signal: AbortSignal) {
+    setLoading(true)
+    setHasError(false)
+    try {
+      const r = await fetch('https://api.github.com/repos/huchialun9-ctrl/refile/releases', { signal })
+      const data: Release[] = await r.json()
+      if (Array.isArray(data) && data.length > 0 && data[0].assets.length > 0) {
+        setReleases(data)
+      } else {
+        setReleases(Array.isArray(data) && data.length > 0 ? [...data, ...FALLBACK_RELEASES] : FALLBACK_RELEASES)
+      }
+    } catch {
+      setReleases(FALLBACK_RELEASES)
+      setHasError(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const refetch = useCallback(() => {
+    const ac = new AbortController()
+    fetchReleases(ac.signal)
+  }, [])
+
   useEffect(() => {
     const ac = new AbortController()
-    fetch('https://api.github.com/repos/huchialun9-ctrl/refile/releases', { signal: ac.signal })
-      .then(r => r.json())
-      .then((data: Release[]) => {
-        setReleases(Array.isArray(data) ? data : FALLBACK_RELEASES)
-        setLoading(false)
-      })
-      .catch(() => {
-        setLoading(false)
-        setReleases(FALLBACK_RELEASES)
-      })
+    fetchReleases(ac.signal)
     return () => ac.abort()
   }, [])
 
@@ -143,7 +172,15 @@ export default function DownloadPage({ darkMode, setDarkMode }: Props) {
         <h2>下載桌面應用程式</h2>
         <p className="download-sub">在區域網路中與其他裝置直接傳輸檔案，不需經過任何伺服器</p>
 
+        {!isOnline && <div className="dp-offline-banner">連線中斷 — 無法取得最新版本</div>}
+
         {loading && <div className="download-loading">載入中…</div>}
+
+        {hasError && !loading && (
+          <div style={{textAlign:'center',marginBottom:16}}>
+            <button className="btn btn-accept" onClick={refetch}>重試</button>
+          </div>
+        )}
 
         <div className="download-card download-web-card">
           <div className="download-card-header">

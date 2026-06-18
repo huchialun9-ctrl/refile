@@ -28,7 +28,10 @@ impl DeviceDiscovery {
             port,
             std::collections::HashMap::from([("id".to_string(), device_id.to_string()), ("name".to_string(), name.to_string())]),
         )?;
-        self.mdns.register(service)?;
+        self.mdns.register(service).map_err(|e| {
+            log::warn!("mDNS registration error: {}", e);
+            e
+        })?;
         Ok(())
     }
 

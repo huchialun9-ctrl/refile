@@ -33,17 +33,28 @@ if (typeof window !== 'undefined') {
   });
 }
 
+interface TauriWindow {
+  __TAURI__?: {
+    core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> }
+    pluginNotification: {
+      requestPermission: () => Promise<string>
+      isPermissionGranted: () => Promise<boolean>
+      sendNotification: (options: unknown) => void
+    }
+  }
+}
+
 // 🛠️ 2. 網頁環境偽造 Tauri API（避免瀏覽器執行時因 import Tauri 套件報錯）
-if (typeof window !== 'undefined' && !window.__TAURI__) {
-  (window as any).__TAURI__ = {};
-  (window as any).__TAURI__.core = {
-    invoke: () => Promise.resolve(null)
-  };
-  (window as any).__TAURI__.pluginNotification = {
-    requestPermission: () => Promise.resolve('granted'),
-    isPermissionGranted: () => Promise.resolve(true),
-    sendNotification: () => {}
-  };
+if (typeof window !== 'undefined' && !(window as unknown as TauriWindow).__TAURI__) {
+  const tw = window as unknown as TauriWindow
+  tw.__TAURI__ = {
+    core: { invoke: () => Promise.resolve(null) },
+    pluginNotification: {
+      requestPermission: () => Promise.resolve('granted'),
+      isPermissionGranted: () => Promise.resolve(true),
+      sendNotification: () => {}
+    }
+  }
 }
 
 createRoot(document.getElementById('root')!).render(

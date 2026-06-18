@@ -53,6 +53,11 @@ pub fn create_tls_client_config() -> Result<Arc<rustls::ClientConfig>> {
     Ok(Arc::new(config))
 }
 
+// SECURITY: This verifier accepts *any* TLS certificate without validation.
+// This is acceptable for a LAN P2P file-transfer app where self-signed
+// certs are generated at runtime and there is no PKI.  Do NOT reuse this
+// code in an application that connects to untrusted networks or the public
+// internet without proper certificate verification.
 #[derive(Debug)]
 struct SkipCertVerifier;
 

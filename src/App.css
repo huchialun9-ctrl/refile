@@ -7,6 +7,20 @@
   --tl-offset: calc(var(--tl-bullet-size) / 2 + var(--tl-line-width) + 6px);
   --warning: #f5a623;
   --warning-bg: rgba(255, 193, 7, 0.15);
+
+  /* fallback if index.css missing */
+  --bg: #ffffff;
+  --bg-secondary: #f7f7f7;
+  --bg-card: #ffffff;
+  --text: #1d1d1f;
+  --text-dim: #6e6e74;
+  --text-muted: #aeaeb2;
+  --border: #e5e5ea;
+  --accent: #6d5df4;
+  --green: #34c759;
+  --red: #ff3b30;
+  --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', monospace;
 }
 
 /* ── Sidebar ── */
@@ -1712,6 +1726,17 @@
   color: var(--text-dim);
 }
 
+.dp-offline-banner {
+  background: #fff3cd;
+  color: #856404;
+  text-align: center;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .download-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -1907,6 +1932,20 @@
 .download-footer-sep {
   margin: 0 6px;
   color: var(--border);
+}
+
+@media (max-width: 640px) {
+  .download-section {
+    padding: 0 20px 40px;
+  }
+  .feature-bar {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .feature-item {
+    min-width: 100%;
+    text-align: center;
+  }
 }
 
 /* ── Privacy Modal ── */

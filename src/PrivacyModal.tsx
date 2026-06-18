@@ -93,10 +93,13 @@ export default function PrivacyModal({ open, onClose }: Props) {
             </span>
             <input type="checkbox" checked={settings.cookies} onChange={e => update('cookies', e.target.checked)} />
           </label>
+          {/* PRIVATE NOTE: Analytics collection is not yet implemented.
+              The checkbox below is a placeholder for future use.
+              It saves to localStorage but no analytics code reads it. */}
           <label className="privacy-row">
             <span>
               <strong>分析資料蒐集</strong>
-              <small>傳送匿名使用統計（目前未實作）</small>
+              <small>傳送匿名使用統計（尚未實作）</small>
             </span>
             <input type="checkbox" checked={settings.analytics} onChange={e => update('analytics', e.target.checked)} disabled />
           </label>

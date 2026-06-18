@@ -109,7 +109,7 @@ export class WebRTCPeer {
         this.fireClose()
       }
     }
-    ch.onerror = (e) => this.onError?.((e as any)?.error?.message || e.type || '資料通道錯誤')
+    ch.onerror = (e: Event) => this.onError?.((e as { error?: { message?: string } }).error?.message || e.type || '資料通道錯誤')
     ch.onmessage = (e) => {
       if (typeof e.data === 'string') {
         try {

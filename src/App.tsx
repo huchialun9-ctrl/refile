@@ -104,7 +104,7 @@ const TRANSFERS_KEY = 'reflie_transfers'
 function App() {
   const [isTauri] = useState(() => {
     if (typeof window === 'undefined') return false
-    try { return typeof (window as any).__TAURI_INTERNALS__?.invoke === 'function' } catch { return false }
+    try { return typeof (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__?.invoke === 'function' } catch { return false }
   })
   const [devices, setDevices] = useState<DeviceInfo[]>([])
   const [transfers, setTransfers] = useState<Record<string, TransferSession>>({})
@@ -122,6 +122,8 @@ function App() {
   const [showPrivacy, setShowPrivacy] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
   const [myPeerId] = useState(() => deriveLocalId())
+  const handleShowQRRef = useRef(handleShowQR)
+  handleShowQRRef.current = handleShowQR
   const [inputPeerId, setInputPeerId] = useState('')
   const [peerConnecting, setPeerConnecting] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
@@ -298,7 +300,6 @@ function App() {
         .catch(e => console.error(`Failed to listen to ${event}:`, e))
     }
 
-    const showQrRef = handleShowQR
     let firstDiscover = true
     safeListen<DeviceInfo[]>('devices-update', payload => {
       setDevices(payload)
@@ -306,7 +307,7 @@ function App() {
         setConnectionStatus('green')
         if (firstDiscover) {
           firstDiscover = false
-          showQrRef()
+          handleShowQRRef.current()
         }
       }
     })

@@ -165,11 +165,14 @@ async fn get_bluetooth_status(state: State<'_, AppState>) -> Result<bool, String
 async fn open_folder(path: String) -> Result<(), String> {
     let p = std::path::Path::new(&path);
     let dir = if p.is_dir() { p.to_path_buf() } else { p.parent().unwrap_or(p).to_path_buf() };
-    std::process::Command::new("explorer")
-        .arg(dir.to_string_lossy().as_ref())
-        .spawn()
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    let dir_str = dir.to_string_lossy().to_string();
+    // Try platform-specific openers in order: explorer (Windows), open (macOS), xdg-open (Linux)
+    for cmd in &["explorer", "open", "xdg-open"] {
+        if std::process::Command::new(cmd).arg(&dir_str).spawn().is_ok() {
+            return Ok(());
+        }
+    }
+    Err("Failed to open folder: no suitable command found".to_string())
 }
 
 #[tauri::command]

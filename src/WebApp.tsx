@@ -22,6 +22,26 @@ interface WebTransfer {
   textContent?: string
 }
 
+interface BluetoothLEScan {
+  stop: () => void
+  addEventListener: (event: string, handler: (e: Event) => void) => void
+  removeEventListener: (event: string, handler: (e: Event) => void) => void
+}
+
+interface BluetoothAdvertisingEvent extends Event {
+  device?: { id?: string; address?: string; name?: string }
+  name?: string
+  localName?: string
+  manufacturerData?: {
+    has: (id: number) => boolean
+    get: (id: number) => DataView
+  }
+}
+
+interface NavigatorBluetoothWithLEScan {
+  requestLEScan: (options: { acceptAllAdvertisements: boolean; active: boolean }) => Promise<BluetoothLEScan>
+}
+
 function fmtSize(b: number) {
   if (b === 0) return '0 B'
   const k = 1024, u = ['B', 'KB', 'MB', 'GB']
@@ -76,9 +96,13 @@ export default function WebApp() {
   const cancelTransfer = useCallback((id: string) => {
     abortRef.current[id] = true
     abortCtrlRef.current[id]?.abort()
-    setTransfers(prev => prev.map(t =>
-      t.id === id && t.status === 'transferring' ? { ...t, status: 'cancelled' } : t
-    ))
+    setTransfers(prev => {
+      const found = prev.find(t => t.id === id)
+      if (found?.blobUrl) URL.revokeObjectURL(found.blobUrl)
+      return prev.map(t =>
+        t.id === id && t.status === 'transferring' ? { ...t, status: 'cancelled', blobUrl: undefined } : t
+      )
+    })
   }, [])
 
   const handlePreview = useCallback((url: string, name: string) => {
@@ -103,9 +127,9 @@ export default function WebApp() {
   const [btConnectingId, setBtConnectingId] = useState('')
   const [bleStatus, setBleStatus] = useState<string | null>(null)
   const [btAutoScan, setBtAutoScan] = useState(false)
-  const bleScanRef = useRef<any>(null)
+  const bleScanRef = useRef<BluetoothLEScan | null>(null)
   const btScanningRef = useRef(false)
-  const bleListenerRef = useRef<((e: any) => void) | null>(null)
+  const bleListenerRef = useRef<((e: BluetoothAdvertisingEvent) => void) | null>(null)
   const [qrUrl, setQrUrl] = useState('')
   const [qrError, setQrError] = useState('')
   const [onlinePeers, setOnlinePeers] = useState<Array<{id: string; name: string}>>([])
@@ -136,12 +160,12 @@ export default function WebApp() {
     setBleStatus('正在掃描藍牙裝置…')
     try {
       // Try LEScan first (auto-scan without dialog)
-      if ((navigator.bluetooth as any).requestLEScan) {
-        const scan = await (navigator.bluetooth as any).requestLEScan({ acceptAllAdvertisements: true, active: true })
+      if ((navigator.bluetooth as unknown as NavigatorBluetoothWithLEScan).requestLEScan) {
+        const scan = await (navigator.bluetooth as unknown as NavigatorBluetoothWithLEScan).requestLEScan({ acceptAllAdvertisements: true, active: true })
         bleScanRef.current = scan
         setBtAutoScan(true)
         setBleStatus('藍牙掃描中，偵測到裝置會自動加入列表')
-        const handler = (e: any) => {
+        const handler = (e: BluetoothAdvertisingEvent) => {
           const addr = e.device?.id || e.device?.address || Math.random().toString(36).slice(2, 10)
           // Try to extract name from manufacturer data (desktop app protocol)
           let name = e.device?.name || e.name || e.localName || ''
@@ -182,10 +206,10 @@ export default function WebApp() {
           setTimeout(() => setBleStatus(null), 3000)
         }
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       btScanningRef.current = false
       setBtScanning(false)
-      if (e.name !== 'NotFoundError') setBleStatus('藍牙掃描失敗: ' + String(e))
+      if ((e as { name?: string }).name !== 'NotFoundError') setBleStatus('藍牙掃描失敗: ' + String(e))
     }
   }, [])
 
@@ -372,13 +396,14 @@ export default function WebApp() {
         try {
           const msg = JSON.parse(raw)
           if (msg.type === 'peer-list' && Array.isArray(msg.peers)) {
-            const others = msg.peers.filter((p: any) => p.id !== id)
+            const peers = msg.peers as Array<{ id: string; name: string }>
+            const others = peers.filter(p => p.id !== id)
             setOnlinePeers(others)
             // Update BLE devices: match by name and set peerId
             setBtDevices(prev => Array.isArray(prev) ? prev.map(d => {
-              const byPeer = others.find((p: any) => p.id === d.peerId)
+              const byPeer = others.find(p => p.id === d.peerId)
               if (byPeer) return { ...d, name: byPeer.name || d.name }
-              const byName = others.find((p: any) => p.name === d.name)
+              const byName = others.find(p => p.name === d.name)
               if (byName) return { ...d, peerId: byName.id }
               return d
             }) : [])
@@ -520,9 +545,17 @@ export default function WebApp() {
         } catch (e) {
           const err = String(e)
           if (abortRef.current[id]) {
-            setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'cancelled', error: '已取消傳輸' } : t))
+            setTransfers(prev => {
+              const found = prev.find(t => t.id === id)
+              if (found?.blobUrl) URL.revokeObjectURL(found.blobUrl)
+              return prev.map(t => t.id === id ? { ...t, status: 'cancelled', error: '已取消傳輸', blobUrl: undefined } : t)
+            })
           } else {
-            setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'error', error: err } : t))
+            setTransfers(prev => {
+              const found = prev.find(t => t.id === id)
+              if (found?.blobUrl) URL.revokeObjectURL(found.blobUrl)
+              return prev.map(t => t.id === id ? { ...t, status: 'error', error: err, blobUrl: undefined } : t)
+            })
           }
         }
       }
