@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "reflie",
-  "version": "0.1.0",
-  "identifier": "com.reflie.app",
+  "version": "0.2.0",
+  "identifier": "com.reflie.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",

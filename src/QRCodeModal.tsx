@@ -14,13 +14,24 @@ export default function QRCodeModal({ data, label, onClose }: Props) {
 
   useEffect(() => {
     if (canvasRef.current && isQR) {
+      const dark = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#1d1d1f'
+      const light = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#ffffff'
       QRCode.toCanvas(canvasRef.current, data, {
         width: 280,
         margin: 2,
-        color: {
-          dark: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
-          light: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
-        },
+        color: { dark, light },
+      }).catch(() => {
+        if (canvasRef.current) {
+          const ctx = canvasRef.current.getContext('2d')
+          if (ctx) {
+            ctx.fillStyle = '#fee'
+            ctx.fillRect(0, 0, 280, 280)
+            ctx.fillStyle = '#c00'
+            ctx.font = '14px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.fillText('QR 產生失敗', 140, 140)
+          }
+        }
       })
     }
   }, [data, isQR])

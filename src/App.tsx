@@ -298,6 +298,7 @@ function App() {
         .catch(e => console.error(`Failed to listen to ${event}:`, e))
     }
 
+    const showQrRef = handleShowQR
     let firstDiscover = true
     safeListen<DeviceInfo[]>('devices-update', payload => {
       setDevices(payload)
@@ -305,7 +306,7 @@ function App() {
         setConnectionStatus('green')
         if (firstDiscover) {
           firstDiscover = false
-          handleShowQR()
+          showQrRef()
         }
       }
     })
@@ -447,23 +448,26 @@ function App() {
 
   const handleShowQR = useCallback(async () => {
     if (!isTauri) {
-      setQrData('請下載桌面版以使用 QR Code 連線')
-      setQrLabel('')
+      const peer = sigOk && sigPeerId ? sigPeerId : myPeerId
+      const url = `${window.location.origin}${window.location.pathname}?peer=${peer}`
+      setQrData(url)
+      setQrLabel(`ID: ${fmtId(peer)}`)
       setShowQR(true)
       return
     }
     try {
-      const [host, port] = await invoke<[string, number]>('my_info')
-      const data = `re-file:${host}:${port}`
-      setQrData(data)
-      setQrLabel(`${host}:${port}`)
+      const [host, port] = await invoke<[string, number]>('my_info').catch(() => ['', 0] as [string, number])
+      const peer = sigOk && sigPeerId ? sigPeerId : myPeerId
+      const label = `${fmtId(peer)}${host ? ` @ ${host}:${port}` : ''}`
+      setQrData(peer)
+      setQrLabel(label)
       setShowQR(true)
     } catch (e) {
-      setQrData('無法取得連線資訊，請確認已啟動發現服務')
-      setQrLabel('')
+      setQrData(fmtId(myPeerId))
+      setQrLabel(`ID: ${fmtId(myPeerId)}`)
       setShowQR(true)
     }
-  }, [isTauri])
+  }, [isTauri, myPeerId, sigOk, sigPeerId])
 
   const handleCopyId = useCallback(() => {
     const id = sigOk && sigPeerId ? sigPeerId : myPeerId
