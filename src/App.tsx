@@ -10,6 +10,9 @@ import QRCodeModal from './QRCodeModal'
 import PrivacyModal, { loadPrivacy } from './PrivacyModal'
 import ConnectionGuide from './ConnectionGuide'
 import WebApp from './WebApp'
+import { SignalingClient } from './webrtc/signaling'
+import { WebRTCPeer } from './webrtc/peer'
+import { FileReceiver } from './webrtc/transfer'
 import './App.css'
 
 function formatSize(bytes: number): string {
@@ -128,6 +131,22 @@ function App() {
     typeof window !== 'undefined' && window.location.hash === '#download'
   )
 
+  // Signaling / WebRTC state
+  const sigRef = useRef<SignalingClient | null>(null)
+  const [sigPeerId, setSigPeerId] = useState('')
+  const [sigOk, setSigOk] = useState(false)
+  const [sigError, setSigError] = useState('')
+  const [onlinePeers, setOnlinePeers] = useState<Array<{id: string; name: string}>>([])
+  const [sigConnecting, setSigConnecting] = useState(false)
+  const [sigRemotePeerId, setSigRemotePeerId] = useState('')
+  const [webrtcConnected, setWebrtcConnected] = useState(false)
+  const webrtcRef = useRef<WebRTCPeer | null>(null)
+  const webrtcConnectedRef = useRef(false)
+  const webrtcConnectingRef = useRef(false)
+  const receiverRef = useRef<FileReceiver | null>(null)
+  const [shareLabel, setShareLabel] = useState('')
+  const handleIncomingRef = useRef<(sig: SignalingClient, data: {sdp: RTCSessionDescriptionInit; from: string; name: string}) => Promise<void>>()
+
   useEffect(() => {
     const onHash = () => setShowDownloadPage(window.location.hash === '#download')
     window.addEventListener('hashchange', onHash)
@@ -196,6 +215,75 @@ function App() {
         }
       } catch (e) { console.error('Notification permission error:', e) }
     })()
+  }, [])
+
+  // Signaling init
+  useEffect(() => {
+    let cancelled = false
+    const sig = new SignalingClient()
+    sigRef.current = sig
+
+    // Listen for raw server messages (peer-list, error, etc.)
+    sig.onRawMessage((raw) => {
+      if (cancelled) return
+      try {
+        const msg = JSON.parse(raw) as Record<string, unknown>
+        if (msg.type === 'peer-list') {
+          setOnlinePeers(msg.peers as Array<{id: string; name: string}>)
+        } else if (msg.type === 'error') {
+          setSigError(msg.message as string)
+          setSigConnecting(false)
+        }
+      } catch {}
+    })
+
+    // Listen for incoming WebRTC signals (offers from remote peers)
+    sig.addSignalHandler((from, rawData) => {
+      if (cancelled) return
+      const data = rawData as Record<string, unknown>
+      // Only handle offer-type signals here; everything else goes to WebRTCPeer instances
+      if (data.type === 'offer' && data.sdp) {
+        if (webrtcConnectedRef.current || webrtcConnectingRef.current) return
+        handleIncomingRef.current?.(sig, {
+          from,
+          sdp: data.sdp as RTCSessionDescriptionInit,
+          name: (data.name as string) || '',
+        }).catch(e => console.error('handleIncoming error:', e))
+      }
+    })
+
+    sig.onDisconnect(() => {
+      if (cancelled) return
+      setSigConnecting(false)
+      setSigOk(false)
+    })
+
+    // Try connecting with fallback
+    ;(async () => {
+      const urls = [
+        'ws://localhost:3001/ws',
+        'ws://localhost:5000/ws',
+      ]
+      for (const url of urls) {
+        if (cancelled) return
+        try {
+          const id = await sig.connect(8000, url)
+          if (cancelled) return
+          setSigPeerId(id)
+          setSigOk(true)
+          setSigConnecting(false)
+          setSigError('')
+          return
+        } catch {
+          // try next
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      sig.disconnect()
+    }
   }, [])
 
   useEffect(() => {
@@ -344,27 +432,110 @@ function App() {
   }, [isTauri])
 
   const handleCopyId = useCallback(() => {
-    navigator.clipboard.writeText(myPeerId).then(() => {
+    const id = sigOk && sigPeerId ? sigPeerId : myPeerId
+    navigator.clipboard.writeText(id).then(() => {
       setCopiedId(true)
       setTimeout(() => setCopiedId(false), 2000)
     })
-  }, [myPeerId])
+  }, [myPeerId, sigOk, sigPeerId])
+
+  const handleShareLink = useCallback(() => {
+    if (!sigOk || !sigPeerId) return
+    const url = `${window.location.origin}${window.location.pathname}?peer=${sigPeerId}`
+    navigator.clipboard.writeText(url).then(() => {
+      setShareLabel('✓ 已複製連結')
+      setTimeout(() => setShareLabel(''), 2000)
+    })
+  }, [sigOk, sigPeerId])
+
+  const handleSigDisconnect = useCallback(() => {
+    webrtcRef.current?.close()
+    webrtcRef.current = null
+    webrtcConnectedRef.current = false
+    setWebrtcConnected(false)
+    webrtcConnectingRef.current = false
+    setSigRemotePeerId('')
+  }, [])
+
+  const setupPeer = useCallback((wc: WebRTCPeer) => {
+    wc.onOpen = () => {
+      webrtcConnectedRef.current = true
+      setWebrtcConnected(true)
+      webrtcConnectingRef.current = false
+    }
+    wc.onClose = () => {
+      webrtcConnectedRef.current = false
+      setWebrtcConnected(false)
+      webrtcConnectingRef.current = false
+      setSigRemotePeerId('')
+    }
+    wc.onError = (msg) => {
+      console.error('WebRTC error:', msg)
+      webrtcConnectingRef.current = false
+    }
+    return wc
+  }, [])
+
+  const doConnect = useCallback(async (sig: SignalingClient, targetId: string) => {
+    if (webrtcConnectedRef.current || webrtcConnectingRef.current) return
+    webrtcConnectingRef.current = true
+    setSigRemotePeerId(targetId)
+    try {
+      const wc = new WebRTCPeer(sig, targetId, true)
+      webrtcRef.current = setupPeer(wc)
+      await wc.initiate()
+    } catch (e) {
+      console.error('doConnect error:', e)
+      webrtcConnectingRef.current = false
+    }
+  }, [setupPeer])
+
+  const handleIncoming = useCallback(async (sig: SignalingClient, data: {sdp: RTCSessionDescriptionInit; from: string; name: string}) => {
+    if (webrtcConnectedRef.current || webrtcConnectingRef.current) return
+    webrtcConnectingRef.current = true
+    setSigRemotePeerId(data.from)
+    try {
+      const offer = new RTCSessionDescription(data.sdp)
+      const wc = new WebRTCPeer(sig, data.from, false, offer)
+      webrtcRef.current = setupPeer(wc)
+    } catch (e) {
+      console.error('handleIncoming error:', e)
+      webrtcConnectingRef.current = false
+    }
+  }, [setupPeer])
+
+  handleIncomingRef.current = handleIncoming
 
   const handleIdConnect = useCallback(() => {
     const raw = inputPeerId.replace(/[^A-Fa-f0-9]/g, '').toUpperCase().slice(0, 8)
     if (raw.length < 6) return
     setPeerConnecting(true)
     setIdSearchResult(null)
-    // Search devices by ID prefix
-    const match = devices.find(d => d.id.toUpperCase().includes(raw) || raw.includes(d.id.toUpperCase().slice(0, 6)))
-    if (match) {
-      setSelectedPeer(match.id)
-      setIdSearchResult('found')
+    // Try WebRTC via signaling if available
+    const sig = sigRef.current
+    if (sig && sigOk && onlinePeers.some(p => p.id.toUpperCase().startsWith(raw) || raw.startsWith(p.id.toUpperCase().slice(0, 6)))) {
+      const target = onlinePeers.find(p => p.id.toUpperCase().startsWith(raw) || raw.startsWith(p.id.toUpperCase().slice(0, 6)))
+      if (target) {
+        doConnect(sig, target.id).then(() => {
+          setIdSearchResult('found')
+        }).catch(() => {
+          setIdSearchResult('not-found')
+        })
+      } else {
+        setIdSearchResult('not-found')
+      }
     } else {
-      setIdSearchResult('not-found')
+      // Fallback: search LAN devices
+      const match = devices.find(d => d.id.toUpperCase().includes(raw) || raw.includes(d.id.toUpperCase().slice(0, 6)))
+      if (match) {
+        setSelectedPeer(match.id)
+        setIdSearchResult('found')
+      } else {
+        setIdSearchResult('not-found')
+      }
     }
     setTimeout(() => { setPeerConnecting(false); setIdSearchResult(null); setInputPeerId('') }, 2000)
-  }, [inputPeerId, devices])
+  }, [inputPeerId, devices, sigOk, onlinePeers, doConnect])
 
   const toggleExpand = (id: string) => {
     setExpanded(prev => {
@@ -568,7 +739,10 @@ function App() {
           <div className="sid-label">我的 ID</div>
           <div className="sid-id-row">
             <span className="sid-icon">{getOSIcon()}</span>
-            <span className="sid-id">{fmtId(myPeerId)}</span>
+            <span className="sid-id">{sigOk && sigPeerId ? sigPeerId : fmtId(myPeerId)}</span>
+            {sigConnecting && <span className="sid-badge sid-badge-pending">連線中…</span>}
+            {sigOk && <span className="sid-badge sid-badge-ok">線上</span>}
+            {sigError && <span className="sid-badge sid-badge-err">{sigError}</span>}
           </div>
           <div className="sid-actions">
             <button className="sid-btn" onClick={handleCopyId} title="複製 ID">
@@ -579,7 +753,43 @@ function App() {
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="4" height="4"/></svg>
               QR
             </button>
+            {sigOk && (
+              <button className="sid-btn sid-share-btn" onClick={handleShareLink} title="複製分享連結">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                {shareLabel || '分享'}
+              </button>
+            )}
           </div>
+
+          {/* WebRTC connected state */}
+          {webrtcConnected && sigRemotePeerId && (
+            <div className="sid-connected-panel">
+              <div className="sid-connected-row">
+                <span className="status-dot-indicator green" />
+                <span className="sid-peer-name">已連線 {sigRemotePeerId}</span>
+              </div>
+              <button className="sid-btn sid-disconnect-btn" onClick={handleSigDisconnect}>
+                中斷連線
+              </button>
+            </div>
+          )}
+
+          {/* Online peers from signaling */}
+          {sigOk && onlinePeers.length > 0 && (
+            <>
+              <div className="sid-divider" />
+              <div className="sid-label">線上用戶</div>
+              <div className="sid-online-list">
+                {onlinePeers.filter(p => p.id !== sigPeerId).map(p => (
+                  <div key={p.id} className="sid-online-row">
+                    <span className="sid-online-dot" />
+                    <span className="sid-online-name">{p.name || p.id.slice(0, 8)}</span>
+                    <span className="sid-online-id">{p.id.slice(0, 8)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="sid-divider" />
 
@@ -600,7 +810,7 @@ function App() {
           </div>
           {idSearchResult === 'found' && <div className="sid-msg sid-msg-ok">已選取相符裝置</div>}
           {idSearchResult === 'not-found' && <div className="sid-msg sid-msg-err">找不到此 ID 的裝置</div>}
-          {selectedPeer && (
+          {selectedPeer && !sigRemotePeerId && (
             <div className="sid-connected-row">
               <span className="status-dot-indicator green" />
               <span className="sid-peer-name">
@@ -667,6 +877,8 @@ function App() {
           <span className="footer-legal">檔案經點對點加密後直接傳輸，絕不儲存於任何伺服器</span>
           <span className="footer-links">
             <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <span className="footer-sep">·</span>
+            <a href="https://opensource.org/license/mit" target="_blank" rel="noopener noreferrer">MIT 授權</a>
             <span className="footer-sep">·</span>
             <a href="https://github.com/huchialun9-ctrl/refile/issues" target="_blank" rel="noopener noreferrer">回報問題</a>
           </span>

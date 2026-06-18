@@ -219,6 +219,8 @@ export default function DownloadPage({ darkMode, setDarkMode }: Props) {
         <span className="download-footer-links">
           <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer">GitHub</a>
           <span className="download-footer-sep">·</span>
+          <a href="https://opensource.org/license/mit" target="_blank" rel="noopener noreferrer">MIT 授權</a>
+          <span className="download-footer-sep">·</span>
           <a href="https://github.com/huchialun9-ctrl/refile/issues" target="_blank" rel="noopener noreferrer">回報問題</a>
           <span className="download-footer-sep">·</span>
           <a href="#" onClick={e => { e.preventDefault(); setShowCookie(true) }}>Cookie 設定</a>
