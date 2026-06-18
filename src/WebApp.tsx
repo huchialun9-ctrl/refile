@@ -725,6 +725,13 @@ export default function WebApp() {
               )}
             </div>
 
+            {/* Tech badges */}
+            <div className="webapp-tech">
+              <span className="webapp-tech-pill">WebRTC</span>
+              <span className="webapp-tech-pill">WebSocket</span>
+              <span className="webapp-tech-pill">點對點加密</span>
+            </div>
+
             {/* Connection Dashboard */}
             {connected && (
               <div className="webapp-dash">
@@ -781,17 +788,33 @@ export default function WebApp() {
                   傳送文字
                 </button>
               </div>
-            ) : (
-              <div className="file-upload-form">
-                <div className="file-upload-label file-upload-label-dim">
-                  <div className="file-upload-design">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                    </svg>
-                    <p>還沒連線</p>
-                    <p>左邊輸入對方的 ID 就能連了</p>
+            ) : sigOk ? (
+              <div className="webapp-idle">
+                <div className="webapp-idle-steps">
+                  <div className="webapp-idle-step">
+                    <span className="webapp-idle-num">1</span>
+                    <span>把你的 ID 給對方或輸入對方的 ID</span>
                   </div>
+                  <div className="webapp-idle-step">
+                    <span className="webapp-idle-num">2</span>
+                    <span>按「連線」等待配對</span>
+                  </div>
+                  <div className="webapp-idle-step">
+                    <span className="webapp-idle-num">3</span>
+                    <span>連上後直接拖曳檔案開始傳</span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Quick tips when connected but idle */}
+            {connected && transfers.length === 0 && (
+              <div className="webapp-tips">
+                <div className="webapp-tips-header">提示</div>
+                <div className="webapp-tips-list">
+                  <div className="webapp-tips-item">你可以一次拖曳多個檔案</div>
+                  <div className="webapp-tips-item">檔案不會經過伺服器，傳完即斷</div>
+                  <div className="webapp-tips-item">傳送文字適合用來分享密碼或網址</div>
                 </div>
               </div>
             )}

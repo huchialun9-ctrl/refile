@@ -2321,6 +2321,100 @@
   background: var(--green-bg);
 }
 
+/* ── Tech badges ── */
+.webapp-tech {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin: 8px 0 4px;
+}
+.webapp-tech-pill {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  letter-spacing: 0.3px;
+}
+
+/* ── Idle guide ── */
+.webapp-idle {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 18px 0;
+}
+.webapp-idle-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.webapp-idle-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+}
+.webapp-idle-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Quick tips ── */
+.webapp-tips {
+  width: 100%;
+  max-width: 420px;
+  margin: 8px auto 0;
+}
+.webapp-tips-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.webapp-tips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.webapp-tips-item {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.webapp-tips-item::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
 /* ── Connection Dashboard ── */
 .webapp-dash {
   width: 100%;
