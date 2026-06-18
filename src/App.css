@@ -2410,7 +2410,29 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--text);
+  flex: 1;
 }
+.bt-device-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  letter-spacing: 0.3px;
+}
+.bt-connect-btn {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.bt-connect-btn:hover { opacity: 0.85; }
 
 /* ── Idle guide ── */
 .webapp-idle {

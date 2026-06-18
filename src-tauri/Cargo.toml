@@ -1,6 +1,6 @@
 [package]
 name = "reflie"
-version = "0.1.0"
+version = "0.2.0"
 description = "re/file - P2P File Transfer"
 authors = ["you"]
 license = "MIT"

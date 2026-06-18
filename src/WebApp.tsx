@@ -93,7 +93,7 @@ export default function WebApp() {
     }
   }, [])
 
-  interface BtDevice { id: string; name: string; connected: boolean; peerId?: string; deviceRef?: BluetoothDevice }
+  interface BtDevice { id: string; name: string; connected: boolean; peerId?: string; deviceRef?: BluetoothDevice; fromApp?: boolean }
   const [landing, setLanding] = useState(true)
   const [btDevices, setBtDevices] = useState<BtDevice[]>([])
   const [btScanning, setBtScanning] = useState(false)
@@ -140,8 +140,29 @@ export default function WebApp() {
         setBleStatus('藍牙掃描中，偵測到裝置會自動加入列表')
         const handler = (e: any) => {
           const addr = e.device?.id || e.device?.address || Math.random().toString(36).slice(2, 10)
-          const name = e.device?.name || e.name || e.localName || `未知裝置 ${addr.slice(0, 6)}`
-          setBtDevices(prev => prev.some(d => d.id === addr) ? prev : [...prev, { id: addr, name, connected: false }])
+          // Try to extract name from manufacturer data (desktop app protocol)
+          let name = e.device?.name || e.name || e.localName || ''
+          let fromApp = false
+          if (e.manufacturerData?.has ? e.manufacturerData.has(0xFFFF) : false) {
+            const dv: DataView = e.manufacturerData.get(0xFFFF)
+            if (dv.byteLength >= 8) {
+              const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1))
+              if (magic === 'RF') {
+                fromApp = true
+                const nameLen = Math.min(dv.byteLength - 8, 16)
+                const nameBytes = new Uint8Array(dv.buffer, dv.byteOffset + 8, nameLen)
+                const dec = new TextDecoder()
+                const decodedName = dec.decode(nameBytes).replace(/\0/g, '').trim()
+                if (decodedName) name = decodedName
+              }
+            }
+          }
+          if (!name) name = `未知裝置 ${addr.slice(0, 6)}`
+          setBtDevices(prev => {
+            const existing = prev.find(d => d.id === addr)
+            if (existing) return prev.map(d => d.id === addr ? { ...d, name, fromApp } : d)
+            return [...prev, { id: addr, name, connected: false, fromApp }]
+          })
         }
         bleListenerRef.current = handler
         scan.addEventListener('advertisementreceived', handler)
@@ -988,16 +1009,25 @@ export default function WebApp() {
               )}
               {Array.isArray(btDevices) && btDevices.length > 0 && (
                 <div className="bt-device-list">
-                  {btDevices.map(d => (
+                  {btDevices.map(d => {
+                    const matchedPeer = Array.isArray(onlinePeers) ? onlinePeers.find(p => p.name === d.name) : null
+                    return (
                     <div key={d.id} className={`bt-device-item ${d.connected ? 'bt-connected' : ''}`}>
                       <span className="bt-device-icon">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
                         </svg>
                       </span>
-                      <span className="bt-device-name">{d.name || '未知裝置'}</span>
+                      <span className="bt-device-name">{d.name}</span>
+                      {d.fromApp && <span className="bt-device-badge">re/file</span>}
+                      {matchedPeer && !connected && !connecting && (
+                        <button className="bt-connect-btn" onClick={() => { setInputId(matchedPeer.id); doConnect(peerId, matchedPeer.id, sigRef.current!) }} aria-label={`連線到 ${d.name}`}>
+                          連線
+                        </button>
+                      )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
               {!btScanning && Array.isArray(btDevices) && btDevices.length === 0 && (
