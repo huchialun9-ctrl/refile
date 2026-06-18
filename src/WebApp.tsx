@@ -773,8 +773,8 @@ export default function WebApp() {
                   </div>
                 </div>
               </div>
-              <p className="wl-card-title">點對點加密傳輸</p>
-              <p className="wl-card-desc">檔案經點對點加密後直接傳輸，絕不儲存於任何伺服器</p>
+              <p className="wl-card-title">P2P 加密傳輸</p>
+              <p className="wl-card-desc">直接連線，無伺服器中繼，傳完不留存</p>
             </div>
             <div className="wl-cta">
               <button className="wl-enter-btn" onClick={() => setLanding(false)} aria-label="進入應用">
@@ -1000,7 +1000,7 @@ export default function WebApp() {
                   </button>
                 </div>
               )}
-              {connecting && <span className="wc-connecting"><span className="wc-connecting-spinner"></span>正在等待對方接受連線，請確認對方也在線上…</span>}
+              {connecting && <span className="wc-connecting"><span className="wc-connecting-spinner"></span>正在等待對方接受連線…</span>}
               {sigError && <span className="wc-err" role="alert">{sigError}</span>}
             </div>
 
@@ -1178,15 +1178,15 @@ export default function WebApp() {
                 <div className="webapp-idle-steps">
                   <div className="webapp-idle-step">
                     <span className="webapp-idle-num">1</span>
-                    <span>把你的 ID 給對方或輸入對方的 ID</span>
+                    <span>將你的 ID 提供給對方，或輸入對方 ID</span>
                   </div>
                   <div className="webapp-idle-step">
                     <span className="webapp-idle-num">2</span>
-                    <span>按「連線」等待配對</span>
+                    <span>按下「連線」等待握手完成</span>
                   </div>
                   <div className="webapp-idle-step">
                     <span className="webapp-idle-num">3</span>
-                    <span>連上後直接拖曳檔案或輸入文字開始傳</span>
+                    <span>拖曳檔案或輸入文字開始傳輸</span>
                   </div>
                 </div>
               </div>
@@ -1197,10 +1197,10 @@ export default function WebApp() {
               <div className="webapp-tips">
                 <div className="webapp-tips-header">提示</div>
                 <div className="webapp-tips-list">
-                  <div className="webapp-tips-item">你可以一次拖曳多個檔案</div>
-                  <div className="webapp-tips-item">檔案不會經過伺服器，傳完即斷</div>
-                  <div className="webapp-tips-item">傳送文字適合用來分享密碼或網址</div>
-                  <div className="webapp-tips-item">你也可以直接貼上圖片或文字（Ctrl+V）來傳送</div>
+                  <div className="webapp-tips-item">支援批次拖曳多個檔案</div>
+                  <div className="webapp-tips-item">直連傳輸，無伺服器中繼</div>
+                  <div className="webapp-tips-item"><kbd>Ctrl+V</kbd> 貼上圖片或文字</div>
+                  <div className="webapp-tips-item">藍牙掃描區網裝置快速配對</div>
                 </div>
               </div>
             )}
@@ -1244,15 +1244,15 @@ export default function WebApp() {
               <div className="dp-stats-row">
                 <div className="dp-stat">
                   <span className="dp-stat-value">{sends.filter(t => t.status === 'done').length}</span>
-                  <span className="dp-stat-label">已傳送</span>
+                  <span className="dp-stat-label">傳出</span>
                 </div>
                 <div className="dp-stat">
                   <span className="dp-stat-value">{receives.filter(t => t.status === 'done').length}</span>
-                  <span className="dp-stat-label">已接收</span>
+                  <span className="dp-stat-label">傳入</span>
                 </div>
                 <div className="dp-stat">
                   <span className="dp-stat-value">{fmtSize(totalData)}</span>
-                  <span className="dp-stat-label">總傳輸量</span>
+                  <span className="dp-stat-label">總量</span>
                 </div>
               </div>
             </div>
@@ -1265,15 +1265,15 @@ export default function WebApp() {
               </div>
               <div className="dp-item">
                 <span className={`status-dot-indicator ${sigOk ? (connected ? 'green' : 'yellow') : 'red'}`} />
-                訊號伺服器: {sigOk ? (connected ? '已連線' : '待連線') : '未連線'}
+                Signal Server: {sigOk ? (connected ? '已連線' : '待連線') : '未連線'}
               </div>
               <div className="dp-item">
                 <span className={`status-dot-indicator ${connected ? 'green' : 'red'}`} />
-                點對點通道: {connected ? `已連線 (${uptime}s)` : '未連線'}
+                P2P 通道: {connected ? `已連線 (${uptime}s)` : '未連線'}
               </div>
               <div className="dp-item">
                 <span className={`status-dot-indicator ${sigOk ? 'green' : 'red'}`} />
-                連線 ID: {sigOk ? fmtPeer(peerId) : '—'}
+                Peer ID: {sigOk ? fmtPeer(peerId) : '—'}
               </div>
             </div>
 
@@ -1281,7 +1281,7 @@ export default function WebApp() {
             <div className="dp-section">
               <div className="dp-section-header">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-                安全性與隱私
+                安全性
               </div>
               <div className="dp-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1289,15 +1289,15 @@ export default function WebApp() {
               </div>
               <div className="dp-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
-                直連傳輸，不經任何伺服器
+                直連傳輸，無伺服器中繼
               </div>
               <div className="dp-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
-                傳完即清除，不留暫存
+                傳完即清除暫存
               </div>
               <div className="dp-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
-                開放原始碼（MIT 授權）
+                開放原始碼（MIT）
               </div>
             </div>
 
@@ -1305,19 +1305,19 @@ export default function WebApp() {
             <div className="dp-section">
               <div className="dp-section-header">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                使用技巧
+                快捷鍵
               </div>
-              <div className="dp-item"><span className="dp-item-dot" /><kbd>Ctrl+V</kbd> 貼上圖片或文字直接傳</div>
-              <div className="dp-item"><span className="dp-item-dot" />可一次拖曳多個檔案</div>
-              <div className="dp-item"><span className="dp-item-dot" /><kbd>Enter</kbd> 快速傳送輸入框的文字</div>
-              <div className="dp-item"><span className="dp-item-dot" />藍牙掃描區網裝置快速配對</div>
+              <div className="dp-item"><span className="dp-item-dot" /><kbd>Ctrl+V</kbd> 貼上圖片或文字</div>
+              <div className="dp-item"><span className="dp-item-dot" /><kbd>Enter</kbd> 傳送輸入框文字</div>
+              <div className="dp-item"><span className="dp-item-dot" />拖曳多個檔案批次傳送</div>
+              <div className="dp-item"><span className="dp-item-dot" />BLE 掃描區網裝置配對</div>
             </div>
 
             {/* Community */}
             <div className="dp-section">
               <div className="dp-section-header">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-                社群
+                連結
               </div>
               <div className="dp-community">
                 <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer" className="dp-link-btn" aria-label="GitHub 專案">
@@ -1326,11 +1326,11 @@ export default function WebApp() {
                 </a>
                 <a href="https://github.com/huchialun9-ctrl/refile/issues" target="_blank" rel="noopener noreferrer" className="dp-link-btn" aria-label="回報問題">
                   <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 9.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM8 0a8 8 0 110 16A8 8 0 018 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z"/></svg>
-                  回報問題
+                  Issues
                 </a>
-                <a href="https://github.com/huchialun9-ctrl/refile/discussions" target="_blank" rel="noopener noreferrer" className="dp-link-btn" aria-label="討論區">
-                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0113.25 12H9.06l-2.573 2.573A1.457 1.457 0 014 13.543V12H2.75A1.75 1.75 0 011 10.25v-7.5zM2.75 2.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h2v2.793l2.793-2.793H13.25a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25H2.75z"/></svg>
-                  討論
+                <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer" className="dp-link-btn" aria-label="GitHub 原始碼">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8zm9 3a1 1 0 11-2 0 1 1 0 012 0zm-.23-5.36l-.26 2.02a.47.47 0 01-.49.42h-.04a.47.47 0 01-.49-.42l-.26-2.02A.87.87 0 017 4.87v-.37c0-.33.28-.5.5-.5h1c.22 0 .5.17.5.5v.37c0 .36-.07.68-.23.77z"/></svg>
+                  原始碼
                 </a>
               </div>
             </div>
@@ -1338,9 +1338,11 @@ export default function WebApp() {
             {/* Footer info */}
             <div className="dp-footer">
               re/file v0.2.0 <span className="dp-footer-sep">·</span>
-              <a href="https://opensource.org/license/mit" target="_blank" rel="noopener noreferrer">MIT 授權</a>
+              <a href="https://opensource.org/license/mit" target="_blank" rel="noopener noreferrer">MIT</a>
               <span className="dp-footer-sep">·</span>
               <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer">GitHub</a>
+              <span className="dp-footer-sep">·</span>
+              <a href="#docs" aria-label="文檔">文檔</a>
             </div>
           </aside>
           </div>
@@ -1353,7 +1355,7 @@ export default function WebApp() {
           <span className="webapp-footer-brand">
             re/<span>file</span> <span className="webapp-footer-ver">v0.2.0</span>
           </span>
-          <span className="webapp-footer-tag">檔案直接點對點傳，不經過伺服器</span>
+          <span className="webapp-footer-tag">P2P 直連傳輸，無伺服器中繼</span>
           <span className="webapp-footer-links">
             <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer" aria-label="GitHub 專案">GitHub</a>
             <span className="webapp-footer-sep">·</span>
@@ -1440,27 +1442,24 @@ export default function WebApp() {
           <div className="modal-dialog guide-dialog" onClick={e => e.stopPropagation()}>
             <h3>使用說明</h3>
             <div className="guide-section">
-              <h4>連線方式</h4>
-              <p>把你的 ID 給對方（複製或 QR Code），對方輸入後按連線。</p>
-              <p>也可以直接點在線用戶的名單，一鍵連線。</p>
+              <h4>連線</h4>
+              <p>將你的 ID 提供給對方（複製或 QR Code），對方輸入後按連線。亦可直接點選在線用戶名單中的裝置。</p>
             </div>
             <div className="guide-section">
-              <h4>傳送檔案</h4>
-              <p>連線後把檔案拖進中間的框，或點「選擇檔案」按鈕。</p>
-              <p>也可以直接複製貼上文字，用「傳送文字」功能。</p>
+              <h4>傳檔</h4>
+              <p>連線後拖曳檔案至中央區域，或點擊「選擇檔案」。亦可直接 Ctrl+V 貼上圖片或文字。</p>
             </div>
             <div className="guide-section">
-              <h4>安全性</h4>
-              <p>檔案走 WebRTC 點對點傳輸，不經過伺服器。</p>
-              <p>連線過程透過 WebSocket 交換信號，但檔案內容不會被第三方看到。</p>
+              <h4>隱私</h4>
+              <p>檔案經 WebRTC 點對點傳輸，不經伺服器。信號交換透過 WebSocket，但檔案內容全程加密，第三方無法讀取。</p>
             </div>
             <div className="guide-actions">
               <label className="guide-dont-show">
                 <input type="checkbox" checked={dontShow} onChange={e => { localStorage.setItem('reflie_guide_done', e.target.checked ? '1' : ''); setDontShow(e.target.checked) }} aria-label="下次不再顯示使用說明" />
-                下次不再顯示
+                不再顯示
               </label>
               <button className="btn btn-accept modal-btn" onClick={() => setShowGuide(false)} aria-label="關閉使用說明">
-                知道了
+                關閉
               </button>
             </div>
           </div>
