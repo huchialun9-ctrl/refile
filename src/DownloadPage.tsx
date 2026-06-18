@@ -160,7 +160,8 @@ export default function DownloadPage({ darkMode, setDarkMode }: Props) {
             <p className="download-note">支援 P2P 檔案傳輸、文字傳送、QR Code 連線</p>
           </div>
           <div className="download-assets">
-            <a href="/" className="download-btn download-btn-web">
+            <a href="/" className="download-btn download-btn-web"
+              onClick={e => { e.preventDefault(); window.location.hash = '' }}>
               <span className="download-btn-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
@@ -198,9 +199,17 @@ export default function DownloadPage({ darkMode, setDarkMode }: Props) {
                   </span>
                 </a>
               ))}
-              <div className="download-note download-webview2">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                Windows 使用者需要安裝 <a href="https://developer.microsoft.com/en-us/microsoft-edge/webview2" target="_blank" rel="noopener noreferrer">Microsoft Edge WebView2</a> 才能執行桌面版
+              <div className="download-webview2">
+                <div className="download-webview2-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </div>
+                <div className="download-webview2-body">
+                  <span className="download-webview2-title">Windows 需要 WebView2 Runtime</span>
+                  <span className="download-webview2-desc">桌面版依賴 Microsoft Edge WebView2，按下按鈕自動下載正確版本</span>
+                  <a className="download-webview2-btn" href="https://go.microsoft.com/fwlink/p/?LinkId=2124703" target="_blank" rel="noopener noreferrer">
+                    下載 WebView2 (Evergreen Bootstrapper)
+                  </a>
+                </div>
               </div>
             </div>
           </div>

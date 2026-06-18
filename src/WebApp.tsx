@@ -328,6 +328,18 @@ export default function WebApp() {
     const peer = new WebRTCPeer(client, from, false, offer)
     peerRef.current = peer
     setupPeer(peer)
+
+    if (connectTimerRef.current) { clearTimeout(connectTimerRef.current) }
+    connectTimerRef.current = setTimeout(() => {
+      if (!connectedRef.current && connectingRef.current) {
+        peerRef.current?.close()
+        setConnecting(false)
+        connectingRef.current = false
+        setSigError('連線逾時 — 對方沒有回應')
+        peerRef.current = null
+        setTimeout(() => setSigError(''), 6000)
+      }
+    }, 30000)
   }, [setupPeer])
 
   useEffect(() => {
@@ -359,12 +371,12 @@ export default function WebApp() {
           if (msg.type === 'peer-list' && Array.isArray(msg.peers)) {
             const others = msg.peers.filter((p: any) => p.id !== id)
             setOnlinePeers(others)
-            // Update BLE device names from peer-list
+            // Update BLE devices: match by name and set peerId
             setBtDevices(prev => Array.isArray(prev) ? prev.map(d => {
-              const match = others.find((p: any) => p.id === d.peerId)
-              if (match && match.name && match.name !== d.name) {
-                return { ...d, name: match.name }
-              }
+              const byPeer = others.find((p: any) => p.id === d.peerId)
+              if (byPeer) return { ...d, name: byPeer.name || d.name }
+              const byName = others.find((p: any) => p.name === d.name)
+              if (byName) return { ...d, peerId: byName.id }
               return d
             }) : [])
           }
@@ -446,7 +458,10 @@ export default function WebApp() {
     doConnect(peerId, id, sigRef.current)
   }
 
-  const handleDisconnect = () => { peerRef.current?.close() }
+  const handleDisconnect = () => {
+    if (connectTimerRef.current) { clearTimeout(connectTimerRef.current); connectTimerRef.current = null }
+    peerRef.current?.close()
+  }
 
   useEffect(() => {
     if (!connected) { setUptime(0); return }
@@ -964,7 +979,7 @@ export default function WebApp() {
                     })
                     .slice(0, 20).map(p => (
                     <button key={p.id} className={`wc-peer-chip ${connected && remotePeerId === p.id ? 'wc-peer-active' : ''}`}
-                      onClick={() => { if (!connected && !connecting) { setInputId(p.id); doConnect(peerId, p.id, sigRef.current!) } }}
+                      onClick={() => { if (!connected && !connecting && sigRef.current) { setInputId(p.id); doConnect(peerId, p.id, sigRef.current) } }}
                       disabled={connected || connecting}
                       aria-label={`連線到 ${p.name || fmtPeer(p.id)}`}
                       aria-disabled={connected || connecting}>
@@ -1021,7 +1036,7 @@ export default function WebApp() {
                       <span className="bt-device-name">{d.name}</span>
                       {d.fromApp && <span className="bt-device-badge">re/file</span>}
                       {matchedPeer && !connected && !connecting && (
-                        <button className="bt-connect-btn" onClick={() => { setInputId(matchedPeer.id); doConnect(peerId, matchedPeer.id, sigRef.current!) }} aria-label={`連線到 ${d.name}`}>
+                        <button className="bt-connect-btn" onClick={() => { if (sigRef.current) { setInputId(matchedPeer.id); doConnect(peerId, matchedPeer.id, sigRef.current) } }} aria-label={`連線到 ${d.name}`}>
                           連線
                         </button>
                       )}

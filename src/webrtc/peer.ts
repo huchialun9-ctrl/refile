@@ -109,7 +109,7 @@ export class WebRTCPeer {
         this.fireClose()
       }
     }
-    ch.onerror = (e) => this.onError?.(String(e))
+    ch.onerror = (e) => this.onError?.((e as any)?.error?.message || e.type || '資料通道錯誤')
     ch.onmessage = (e) => {
       if (typeof e.data === 'string') {
         try {
@@ -192,19 +192,21 @@ export class WebRTCPeer {
     return new Promise((resolve, reject) => {
       if (signal?.aborted) { reject(new Error('已取消傳輸')); return }
       const timer = setTimeout(() => reject(new Error('傳輸緩衝區逾時')), TIMEOUT)
+      const onAbort = () => { clearTimeout(timer); reject(new Error('已取消傳輸')) }
       if (signal) {
-        signal.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('已取消傳輸')) }, { once: true })
+        signal.addEventListener('abort', onAbort, { once: true })
+      }
+      const done = () => {
+        clearTimeout(timer)
+        if (signal) signal.removeEventListener('abort', onAbort)
       }
       const check = () => {
-        if (signal?.aborted) { clearTimeout(timer); reject(new Error('已取消傳輸')); return }
+        if (signal?.aborted) { done(); reject(new Error('已取消傳輸')); return }
         if (!this.channel || this.channel.readyState !== 'open') {
-          clearTimeout(timer)
-          reject(new Error('傳輸通道已關閉'))
-          return
+          done(); reject(new Error('傳輸通道已關閉')); return
         }
         if (this.channel.bufferedAmount <= MAX) {
-          clearTimeout(timer)
-          resolve()
+          done(); resolve()
         } else {
           setTimeout(check, 30)
         }
