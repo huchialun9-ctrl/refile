@@ -492,6 +492,35 @@ export default function WebApp() {
   const sends = (Array.isArray(transfers) ? transfers : []).filter(t => t.direction === 'send')
   const receives = (Array.isArray(transfers) ? transfers : []).filter(t => t.direction === 'receive')
 
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    if (!connected || !peerRef.current?.isOpen()) return
+    const files: File[] = []
+    if (e.clipboardData.files.length > 0) {
+      for (let i = 0; i < e.clipboardData.files.length; i++) {
+        files.push(e.clipboardData.files[i])
+      }
+    }
+    for (let i = 0; i < e.clipboardData.items.length; i++) {
+      const item = e.clipboardData.items[i]
+      if (item.type === 'image/png' || item.type === 'image/jpeg' || item.type === 'image/gif' || item.type === 'image/webp') {
+        const blob = item.getAsFile()
+        if (blob) files.push(blob)
+      } else if (item.type === 'text/plain') {
+        item.getAsString(text => {
+          if (text.trim()) {
+            const blob = new Blob([text], { type: 'text/plain' })
+            const f = new File([blob], 'pasted-text.txt')
+            sendFiles([f])
+          }
+        })
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault()
+      sendFiles(files)
+    }
+  }, [connected, sendFiles])
+
   // ── Landing page ──
   if (landing) {
     return (
@@ -669,35 +698,6 @@ export default function WebApp() {
       </div>
     )
   }
-
-  const handlePaste = useCallback((e: React.ClipboardEvent) => {
-    if (!connected || !peerRef.current?.isOpen()) return
-    const files: File[] = []
-    if (e.clipboardData.files.length > 0) {
-      for (let i = 0; i < e.clipboardData.files.length; i++) {
-        files.push(e.clipboardData.files[i])
-      }
-    }
-    for (let i = 0; i < e.clipboardData.items.length; i++) {
-      const item = e.clipboardData.items[i]
-      if (item.type === 'image/png' || item.type === 'image/jpeg' || item.type === 'image/gif' || item.type === 'image/webp') {
-        const blob = item.getAsFile()
-        if (blob) files.push(blob)
-      } else if (item.type === 'text/plain') {
-        item.getAsString(text => {
-          if (text.trim()) {
-            const blob = new Blob([text], { type: 'text/plain' })
-            const f = new File([blob], 'pasted-text.txt')
-            sendFiles([f])
-          }
-        })
-      }
-    }
-    if (files.length > 0) {
-      e.preventDefault()
-      sendFiles(files)
-    }
-  }, [connected, sendFiles])
 
   return (
     <div className="webapp-root" onPaste={handlePaste}>
