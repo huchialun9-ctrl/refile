@@ -2116,10 +2116,10 @@
 /* ── Center sections (wc-*) ── */
 .wc-section {
   width: 100%;
-  padding: 16px 0;
+  padding: 20px 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   border-bottom: 1px solid var(--border);
 }
 .wc-section:last-of-type { border-bottom: none; }
@@ -2244,12 +2244,7 @@
   transition: background 0.15s;
 }
 .wc-disc-btn:hover { background: var(--red-bg); }
-.wc-online {
-  min-width: 120px;
-}
-
 @media (max-width: 640px) {
-  .wc-group { padding: 10px 12px; }
 }
 .wc-peer-list {
   display: flex;
@@ -2287,8 +2282,8 @@
 /* ── Tech badges ── */
 .webapp-tech {
   display: flex;
-  gap: 6px;
-  justify-content: center;
+  gap: 8px;
+  justify-content: flex-start;
   margin: 12px 0 4px;
 }
 .webapp-tech-pill {
@@ -2305,7 +2300,6 @@
 /* ── Idle guide ── */
 .webapp-idle {
   width: 100%;
-  max-width: 420px;
   margin: 0 auto;
   padding: 18px 0;
 }
@@ -2342,7 +2336,6 @@
 /* ── Quick tips ── */
 .webapp-tips {
   width: 100%;
-  max-width: 420px;
   margin: 8px auto 0;
 }
 .webapp-tips-header {
@@ -2381,11 +2374,10 @@
 /* ── Connection Dashboard ── */
 .webapp-dash {
   width: 100%;
-  max-width: 420px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 .webapp-dash-row {
   display: flex;
@@ -2394,8 +2386,8 @@
 }
 .webapp-dash-card {
   flex: 1;
-  min-width: 120px;
-  padding: 12px 14px;
+  min-width: 140px;
+  padding: 14px 18px;
   border-radius: 10px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -2455,19 +2447,18 @@
 
 .webapp-main-center {
   width: 100%;
-  max-width: 520px;
+  max-width: 900px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0;
-  padding: 8px 32px 40px;
+  padding: 8px 40px 40px;
   margin: auto;
 }
 
 /* Drop zone */
 .file-upload-form {
-  width: fit-content;
-  height: fit-content;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2478,7 +2469,7 @@
 .file-upload-label {
   cursor: pointer;
   background-color: var(--bg-card);
-  padding: 30px 70px;
+  padding: 40px 80px;
   border-radius: 40px;
   border: 2px dashed var(--border);
   box-shadow: 0px 0px 200px -50px rgb(0 0 0 / 0.3);
@@ -2948,6 +2939,8 @@
 @media (max-width: 640px) {
   .webapp-layout { flex-direction: column; }
   .webapp-panel { width: 100%; max-width: none; border-right: none; border-bottom: 1px solid var(--border); }
+  .webapp-main-center { max-width: 100%; padding: 8px 20px 40px; }
+  .file-upload-label { padding: 30px 40px; }
   .webapp-history-row { grid-template-columns: 1fr; }
   .webapp-main { padding: 16px; }
 }
