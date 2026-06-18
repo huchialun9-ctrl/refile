@@ -142,6 +142,7 @@ export class WebRTCPeer {
   async sendFile(
     file: File,
     onProgress: (sent: number, total: number) => void,
+    signal?: AbortSignal,
   ): Promise<void> {
     if (!this.channel || this.channel.readyState !== 'open') {
       throw new Error('傳輸通道尚未開啟')
@@ -163,11 +164,13 @@ export class WebRTCPeer {
 
     let sent = 0
     while (sent < file.size) {
+      if (signal?.aborted) throw new Error('已取消傳輸')
       // Fail fast if channel closed mid-transfer
       if (!this.channel || this.channel.readyState !== 'open') {
         throw new Error('傳輸通道已關閉')
       }
       await this.waitForBuffer()
+      if (signal?.aborted) throw new Error('已取消傳輸')
       const buf = await file.slice(sent, sent + CHUNK).arrayBuffer()
       this.channel.send(buf)
       sent += buf.byteLength

@@ -4,7 +4,7 @@ import { SignalingClient } from './webrtc/signaling'
 import { WebRTCPeer, type FileMeta } from './webrtc/peer'
 import { FileReceiver } from './webrtc/transfer'
 
-type TxStatus = 'transferring' | 'done' | 'error'
+type TxStatus = 'transferring' | 'done' | 'error' | 'cancelled'
 type TxDir = 'send' | 'receive'
 
 interface WebTransfer {
@@ -59,6 +59,39 @@ export default function WebApp() {
   const [showGuide, setShowGuide] = useState(false)
   const [copied, setCopied] = useState(false)
   const [copyLabel, setCopyLabel] = useState('')
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewType, setPreviewType] = useState<'text' | 'image' | 'pdf' | null>(null)
+  const [previewName, setPreviewName] = useState('')
+  const [roomOpen, setRoomOpen] = useState(false)
+
+  const abortCtrlRef = useRef<Record<string, AbortController>>({})
+  const abortRef = useRef<Record<string, boolean>>({})
+  const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const notifiedRef = useRef<Set<string>>(new Set())
+
+  const cancelTransfer = useCallback((id: string) => {
+    abortRef.current[id] = true
+    abortCtrlRef.current[id]?.abort()
+    setTransfers(prev => prev.map(t =>
+      t.id === id && t.status === 'transferring' ? { ...t, status: 'cancelled' } : t
+    ))
+  }, [])
+
+  const handlePreview = useCallback((url: string, name: string) => {
+    const ext = name.split('.').pop()?.toLowerCase() || ''
+    const imgExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico']
+    const textExts = ['txt', 'md', 'json', 'xml', 'yml', 'yaml', 'csv', 'html', 'css', 'js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'go', 'rs', 'java', 'sh', 'ps1', 'rtf']
+    if (imgExts.includes(ext)) {
+      setPreviewUrl(url); setPreviewType('image'); setPreviewName(name)
+    } else if (ext === 'pdf') {
+      setPreviewUrl(url); setPreviewType('pdf'); setPreviewName(name)
+    } else if (textExts.includes(ext) || name.endsWith('.md')) {
+      setPreviewUrl(url); setPreviewType('text'); setPreviewName(name)
+    } else {
+      setPreviewUrl(url); setPreviewType('text'); setPreviewName(name)
+    }
+  }, [])
+
   interface BtDevice { id: string; name: string; connected: boolean; peerId?: string; deviceRef?: BluetoothDevice }
   const [landing, setLanding] = useState(true)
   const [btDevices, setBtDevices] = useState<BtDevice[]>([])
@@ -95,6 +128,7 @@ export default function WebApp() {
     const receiver = receiverRef.current
 
     peer.onOpen = () => {
+      if (connectTimerRef.current) { clearTimeout(connectTimerRef.current); connectTimerRef.current = null }
       setConnected(true)
       setConnecting(false)
       setRemotePeerId(peer.remotePeerId)
@@ -177,7 +211,20 @@ export default function WebApp() {
     peerRef.current = peer
     setupPeer(peer)
 
+    if (connectTimerRef.current) { clearTimeout(connectTimerRef.current) }
+    connectTimerRef.current = setTimeout(() => {
+      if (!connectedRef.current && connectingRef.current) {
+        peerRef.current?.close()
+        setConnecting(false)
+        connectingRef.current = false
+        setSigError('連線逾時，對方沒有回應')
+        peerRef.current = null
+        setTimeout(() => setSigError(''), 4000)
+      }
+    }, 15000)
+
     peer.initiate().catch(e => {
+      if (connectTimerRef.current) { clearTimeout(connectTimerRef.current); connectTimerRef.current = null }
       setConnecting(false)
       connectingRef.current = false
       setSigError('連線失敗: ' + String(e))
@@ -329,6 +376,9 @@ export default function WebApp() {
     }
     for (const file of files) {
       const id = crypto.randomUUID().slice(0, 8)
+      abortRef.current[id] = false
+      const ctrl = new AbortController()
+      abortCtrlRef.current[id] = ctrl
       speedMap.current[id] = { bytes: 0, ts: Date.now() }
       const blobUrl = URL.createObjectURL(file)
       setTransfers(prev => [...prev, {
@@ -338,7 +388,9 @@ export default function WebApp() {
         blobUrl,
       }])
       try {
+        if (abortRef.current[id]) throw new Error('已取消傳輸')
         await peer.sendFile(file, (sent, total) => {
+          if (abortRef.current[id]) return
           setTransfers(prev => prev.map(t => {
             if (t.id !== id) return t
             const tr = speedMap.current[id]
@@ -349,14 +401,33 @@ export default function WebApp() {
             }
             return { ...t, progress: sent / total, speed, status: sent >= total ? 'done' : 'transferring' }
           }))
-        })
-        setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'done', progress: 1, speed: 0 } : t))
+        }, ctrl.signal)
+        if (!abortRef.current[id]) {
+          setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'done', progress: 1, speed: 0 } : t))
+        }
       } catch (e) {
         const err = String(e)
-        setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'error', error: err } : t))
+        if (abortRef.current[id]) {
+          setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'cancelled', error: '已取消傳輸' } : t))
+        } else {
+          setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'error', error: err } : t))
+        }
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (!('Notification' in window)) return
+    if (Notification.permission === 'denied') return
+    if (Notification.permission === 'default') { Notification.requestPermission() }
+    const newDone = transfers.filter(t => t.status === 'done' && t.direction === 'receive' && !notifiedRef.current.has(t.id))
+    newDone.forEach(t => {
+      try {
+        new Notification('re/file', { body: '檔案已接收完成: ' + t.name })
+        notifiedRef.current.add(t.id)
+      } catch {}
+    })
+  }, [transfers])
 
   const handleSendText = useCallback(() => {
     if (!connected || !textToSend.trim()) return
@@ -429,11 +500,11 @@ export default function WebApp() {
           <div className="wl-header-inner">
             <span className="wl-logo">re/<span>file</span></span>
             <nav className="wl-nav">
-              <a href="#" onClick={e => { e.preventDefault(); setLanding(false) }}>開始使用</a>
-              <a href="https://opensource.org/license/mit" target="_blank" rel="noopener noreferrer">MIT 授權</a>
-              <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer">GitHub</a>
+               <a href="#" onClick={e => { e.preventDefault(); setLanding(false) }} aria-label="開始使用應用">開始使用</a>
+              <a href="https://opensource.org/license/mit" target="_blank" rel="noopener noreferrer" aria-label="MIT 授權">MIT 授權</a>
+              <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer" aria-label="GitHub 專案">GitHub</a>
             </nav>
-            <label className="main-toggle" style={{ marginLeft: 'auto' }}>
+            <label className="main-toggle" style={{ marginLeft: 'auto' }} aria-label={darkMode ? '切換亮色模式' : '切換暗色模式'}>
               <input type="checkbox" className="main-checkbox" checked={darkMode} onChange={() => setDarkMode(d => !d)} />
               <div className="main-track"></div>
               <div className="main-knob"></div>
@@ -508,7 +579,7 @@ export default function WebApp() {
               <p className="wl-card-desc">檔案經點對點加密後直接傳輸，絕不儲存於任何伺服器</p>
             </div>
             <div className="wl-cta">
-              <button className="wl-enter-btn" onClick={() => setLanding(false)}>
+              <button className="wl-enter-btn" onClick={() => setLanding(false)} aria-label="進入應用">
                 進入應用
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
@@ -528,7 +599,7 @@ export default function WebApp() {
               <span className="webapp-wordmark">re/<span>file</span></span>
             </div>
             <div className="topbar-right">
-            <button className="topbar-btn" onClick={() => setDarkMode(d => !d)}>
+            <button className="topbar-btn" onClick={() => setDarkMode(d => !d)} aria-label={darkMode ? '切換亮色模式' : '切換暗色模式'}>
               {darkMode
                 ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
                 : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
@@ -537,7 +608,7 @@ export default function WebApp() {
         </div>
         <div className="webapp-static-body">
           <div className="webapp-static-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
             </svg>
@@ -549,7 +620,8 @@ export default function WebApp() {
           </p>
           <div className="webapp-static-btns">
             <a href="#download" className="webapp-static-btn-primary"
-              onClick={e => { e.preventDefault(); window.location.hash = '#download'; window.location.reload() }}>
+              onClick={e => { e.preventDefault(); window.location.hash = '#download'; window.location.reload() }}
+              aria-label="下載桌面版">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                 <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
@@ -557,7 +629,7 @@ export default function WebApp() {
               下載桌面版
             </a>
             <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer"
-              className="webapp-static-btn-ghost">
+              className="webapp-static-btn-ghost" aria-label="GitHub 專案">
               GitHub →
             </a>
           </div>
@@ -598,33 +670,64 @@ export default function WebApp() {
     )
   }
 
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    if (!connected || !peerRef.current?.isOpen()) return
+    const files: File[] = []
+    if (e.clipboardData.files.length > 0) {
+      for (let i = 0; i < e.clipboardData.files.length; i++) {
+        files.push(e.clipboardData.files[i])
+      }
+    }
+    for (let i = 0; i < e.clipboardData.items.length; i++) {
+      const item = e.clipboardData.items[i]
+      if (item.type === 'image/png' || item.type === 'image/jpeg' || item.type === 'image/gif' || item.type === 'image/webp') {
+        const blob = item.getAsFile()
+        if (blob) files.push(blob)
+      } else if (item.type === 'text/plain') {
+        item.getAsString(text => {
+          if (text.trim()) {
+            const blob = new Blob([text], { type: 'text/plain' })
+            const f = new File([blob], 'pasted-text.txt')
+            sendFiles([f])
+          }
+        })
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault()
+      sendFiles(files)
+    }
+  }, [connected, sendFiles])
+
   return (
-    <div className="webapp-root">
+    <div className="webapp-root" onPaste={handlePaste}>
       {/* ── Topbar ── */}
       <div className="topbar">
         <div className="topbar-left">
-          <button className="topbar-blob" onClick={() => setShowGuide(true)} title="使用說明">
+          <button className="topbar-blob" onClick={() => setShowGuide(true)} title="使用說明" aria-label="使用說明">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
           </button>
-          <span className="webapp-wordmark">re/<span>file</span></span>
+          <span className="webapp-wordmark" role="img" aria-label="re/file 標誌">re/<span>file</span></span>
         </div>
         <div className="topbar-right">
           <button className="topbar-btn" title={connected ? '傳送文字' : '需先連線才能傳送文字'}
             onClick={() => { if (connected) setShowTextShare(true) }}
             style={{ opacity: connected ? 1 : 0.35 }}
-            disabled={!connected}>
+            disabled={!connected}
+            aria-label={connected ? '傳送文字' : '需先連線才能傳送文字'}
+            aria-disabled={!connected}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
             </svg>
           </button>
-          <button className="topbar-btn" title="下載桌面版"
+          <button className="topbar-btn" title="下載桌面版" aria-label="下載桌面版"
             onClick={() => window.open(location.pathname + '#download', '_blank')}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
           </button>
-          <label className="main-toggle">
+          <label className="main-toggle" aria-label={darkMode ? '切換亮色模式' : '切換暗色模式'}>
             <input type="checkbox" className="main-checkbox" checked={darkMode} onChange={() => setDarkMode(d => !d)} />
             <div className="main-track"></div>
             <div className="main-knob"></div>
@@ -644,17 +747,17 @@ export default function WebApp() {
                 <>
                   <span className="wc-id">{fmtPeer(peerId)}</span>
                   <div className="wc-btns">
-                    <button className="wc-btn" onClick={handleCopyId} title="複製 ID">
+                    <button className="wc-btn" onClick={handleCopyId} title="複製 ID" aria-label="複製 ID">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                       {copied ? '已複製' : '複製'}
                     </button>
-                    <button className="wc-btn" onClick={handleShowQR} title="QR Code">
+                    <button className="wc-btn" onClick={handleShowQR} title="QR Code" aria-label="顯示 QR Code">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="4" height="4"/></svg>
                       QR
                     </button>
-                    <button className="wc-btn" onClick={handleShareLink} title="分享連結">
+                    <button className="wc-btn" onClick={handleShareLink} title="分享連結" aria-label="分享連線連結">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                      分享
+                       分享
                     </button>
                   </div>
                 </>
@@ -665,6 +768,39 @@ export default function WebApp() {
               )}
             </div>
 
+            {/* Room / Invite */}
+            {sigOk && (
+              <div className="wc-section">
+                <button className="room-toggle" onClick={() => setRoomOpen(r => !r)} aria-label={roomOpen ? '收起建立連線' : '展開建立連線'} aria-expanded={roomOpen}>
+                  <span>建立連線</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: roomOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </button>
+                {roomOpen && (
+                  <div className="room-card">
+                    <p className="room-url">{location.origin}{location.pathname}?peer={peerId}</p>
+                    <div className="wc-btns">
+                      <button className="wc-btn" onClick={() => { navigator.clipboard.writeText(`${location.origin}${location.pathname}?peer=${peerId}`); setCopied(true); setCopyLabel('連結已複製'); setTimeout(() => { setCopied(false); setCopyLabel('') }, 2000) }} aria-label="複製連線連結">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        {copyLabel || '複製連結'}
+                      </button>
+                      <button className="wc-btn" onClick={handleShowQR} aria-label="顯示 QR Code">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="4" height="4"/></svg>
+                        QR Code
+                      </button>
+                      {navigator.share && (
+                        <button className="wc-btn" onClick={handleShareLink} aria-label="分享連線">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                          分享
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Connect */}
             <div className="wc-section">
               <span className="wc-label">連到對方</span>
@@ -672,7 +808,7 @@ export default function WebApp() {
                 <div className="wc-connected">
                   <span className="status-dot-indicator green" />
                   <span className="wc-remote-id">{fmtPeer(remotePeerId)}</span>
-                  <button className="wc-disc-btn" onClick={handleDisconnect}>斷開</button>
+                  <button className="wc-disc-btn" onClick={handleDisconnect} aria-label="斷開連線">斷開</button>
                 </div>
               ) : (
                 <div className="wc-connect-form">
@@ -683,21 +819,25 @@ export default function WebApp() {
                     onKeyDown={e => e.key === 'Enter' && handleConnect()}
                     maxLength={9}
                     disabled={connecting || !sigOk}
+                    aria-label="輸入對方 ID"
+                    aria-disabled={connecting || !sigOk}
                   />
                   <button className="wc-go-btn" onClick={handleConnect}
-                    disabled={connecting || !sigOk || inputId.replace('-', '').length < 8}>
+                    disabled={connecting || !sigOk || inputId.replace('-', '').length < 8}
+                    aria-label="連線"
+                    aria-disabled={connecting || !sigOk || inputId.replace('-', '').length < 8}>
                     {connecting ? '…' : '連線'}
                   </button>
                 </div>
               )}
-              {sigError && <span className="wc-err">{sigError}</span>}
+              {sigError && <span className="wc-err" role="alert">{sigError}</span>}
             </div>
 
             {/* Online peers */}
             {(Array.isArray(onlinePeers) && onlinePeers.length > 0) && (
               <div className="wc-section wc-online">
                 <span className="wc-label">在線 ({onlinePeers.length})</span>
-                <input className="wc-peer-search" placeholder="搜尋名稱或 ID…"
+                <input className="wc-peer-search" placeholder="搜尋名稱或 ID…" aria-label="搜尋在線用戶"
                   value={peerSearch} onChange={e => setPeerSearch(e.target.value.toUpperCase())}
                   maxLength={20} />
                 <div className="wc-peer-list">
@@ -710,7 +850,9 @@ export default function WebApp() {
                     .slice(0, 20).map(p => (
                     <button key={p.id} className={`wc-peer-chip ${connected && remotePeerId === p.id ? 'wc-peer-active' : ''}`}
                       onClick={() => { if (!connected && !connecting) { setInputId(p.id); doConnect(peerId, p.id, sigRef.current!) } }}
-                      disabled={connected || connecting}>
+                      disabled={connected || connecting}
+                      aria-label={`連線到 ${p.name || fmtPeer(p.id)}`}
+                      aria-disabled={connected || connecting}>
                       {p.name || fmtPeer(p.id)}
                     </button>
                   ))}
@@ -743,11 +885,11 @@ export default function WebApp() {
                   </div>
                 </div>
                 <div className="webapp-dash-actions">
-                  <button className="webapp-dash-btn" onClick={() => setShowTextShare(true)}>
+                  <button className="webapp-dash-btn" onClick={() => setShowTextShare(true)} aria-label="傳送文字">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
                     傳送文字
                   </button>
-                  <button className="webapp-dash-btn invite" onClick={handleShareLink}>
+                  <button className="webapp-dash-btn invite" onClick={handleShareLink} aria-label="邀請其他人連線">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                     邀請其他人
                   </button>
@@ -762,19 +904,21 @@ export default function WebApp() {
                   onDragOver={e => { e.preventDefault(); setDragging(true) }}
                   onDragLeave={() => setDragging(false)}
                   onDrop={handleDrop}
+                  aria-label="拖曳檔案到這裡或點擊選擇檔案"
+                  tabIndex={0}
                 >
                   <input ref={fileInputRef} type="file" multiple hidden
                     onChange={e => { if (e.target.files) { sendFiles(Array.from(e.target.files)); e.target.value = '' } }} />
                   <div className="file-upload-design">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
                     </svg>
                     <p>拖曳檔案到這裡</p>
                     <p>或</p>
-                    <span className="browse-button" onClick={() => fileInputRef.current?.click()}>選擇檔案</span>
+                    <span className="browse-button" onClick={() => fileInputRef.current?.click()} role="button" tabIndex={0} aria-label="選擇檔案">選擇檔案</span>
                   </div>
                 </label>
-                <button className="dz-text-btn" onClick={() => setShowTextShare(true)}>
+                <button className="dz-text-btn" onClick={() => setShowTextShare(true)} aria-label="傳送文字">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
                   </svg>
@@ -808,6 +952,7 @@ export default function WebApp() {
                   <div className="webapp-tips-item">你可以一次拖曳多個檔案</div>
                   <div className="webapp-tips-item">檔案不會經過伺服器，傳完即斷</div>
                   <div className="webapp-tips-item">傳送文字適合用來分享密碼或網址</div>
+                  <div className="webapp-tips-item">你也可以直接貼上圖片或文字（Ctrl+V）來傳送</div>
                 </div>
               </div>
             )}
@@ -817,7 +962,7 @@ export default function WebApp() {
               <div className="webapp-history-section">
                 <div className="webapp-history-header">
                   <span>傳過的東西</span>
-                  <button className="webapp-history-clear" onClick={() => setTransfers([])}>清空</button>
+                  <button className="webapp-history-clear" onClick={() => setTransfers([])} aria-label="清空傳輸記錄">清空</button>
                 </div>
                 <div className="webapp-history-inner">
                   <div className="webapp-history-col">
@@ -826,7 +971,7 @@ export default function WebApp() {
                       傳出去的 <span className="webapp-col-count">{sends.length}</span>
                     </div>
                     {sends.length === 0 && <div className="webapp-col-empty">還沒傳過東西</div>}
-                    {[...sends].reverse().map(t => <TxItem key={t.id} t={t} />)}
+                    {[...sends].reverse().map(t => <TxItem key={t.id} t={t} onCancel={() => cancelTransfer(t.id)} />)}
                   </div>
                   <div className="webapp-history-col">
                     <div className="webapp-col-title">
@@ -834,7 +979,7 @@ export default function WebApp() {
                       收進來的 <span className="webapp-col-count">{receives.length}</span>
                     </div>
                     {receives.length === 0 && <div className="webapp-col-empty">還沒收過東西</div>}
-                    {[...receives].reverse().map(t => <TxItem key={t.id} t={t} onViewText={(text) => setShowTextPreview(text)} />)}
+                    {[...receives].reverse().map(t => <TxItem key={t.id} t={t} onViewText={(text) => setShowTextPreview(text)} onCancel={() => cancelTransfer(t.id)} onPreview={(url, name) => handlePreview(url, name)} />)}
                   </div>
                 </div>
               </div>
@@ -851,11 +996,11 @@ export default function WebApp() {
           </span>
           <span className="webapp-footer-tag">檔案直接點對點傳，不經過伺服器</span>
           <span className="webapp-footer-links">
-            <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer" aria-label="GitHub 專案">GitHub</a>
             <span className="webapp-footer-sep">·</span>
-            <a href="https://opensource.org/license/mit" target="_blank" rel="noopener noreferrer">MIT 授權</a>
+            <a href="https://opensource.org/license/mit" target="_blank" rel="noopener noreferrer" aria-label="MIT 授權">MIT 授權</a>
             <span className="webapp-footer-sep">·</span>
-            <a href="javascript:void(0)" onClick={() => window.open(window.location.origin + window.location.pathname + '#download', '_blank')}>下載桌面版</a>
+            <a href="javascript:void(0)" onClick={() => window.open(window.location.origin + window.location.pathname + '#download', '_blank')} aria-label="下載桌面版">下載桌面版</a>
           </span>
         </div>
       </footer>
@@ -871,12 +1016,13 @@ export default function WebApp() {
               value={textToSend}
               onChange={e => setTextToSend(e.target.value)}
               rows={4}
+              aria-label="輸入要傳送的文字"
             />
             <div className="modal-actions">
-              <button className="btn btn-accept modal-btn" onClick={handleSendText} disabled={!textToSend.trim()}>
+              <button className="btn btn-accept modal-btn" onClick={handleSendText} disabled={!textToSend.trim()} aria-label="傳送文字" aria-disabled={!textToSend.trim()}>
                 傳送
               </button>
-              <button className="btn btn-reject modal-btn" onClick={() => setShowTextShare(false)}>
+              <button className="btn btn-reject modal-btn" onClick={() => setShowTextShare(false)} aria-label="取消傳送文字">
                 取消
               </button>
             </div>
@@ -893,10 +1039,35 @@ export default function WebApp() {
             <div className="modal-actions">
               <button className="btn btn-accept modal-btn" onClick={() => {
                 navigator.clipboard.writeText(showTextPreview)
-              }}>
+              }} aria-label="複製文字">
                 複製文字
               </button>
-              <button className="btn btn-reject modal-btn" onClick={() => setShowTextPreview(null)}>
+              <button className="btn btn-reject modal-btn" onClick={() => setShowTextPreview(null)} aria-label="關閉文字預覽">
+                關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewUrl && previewType && (
+        <div className="modal-overlay" onClick={() => { setPreviewUrl(null); setPreviewType(null) }}>
+          <div className="modal-dialog modal-wide preview-modal-dialog" onClick={e => e.stopPropagation()}>
+            <h3>{previewName}</h3>
+            <div className="preview-content">
+              {previewType === 'image' && (
+                <img src={previewUrl} alt={previewName} className="preview-image" />
+              )}
+              {previewType === 'pdf' && (
+                <embed src={previewUrl} type="application/pdf" className="preview-pdf" />
+              )}
+              {previewType === 'text' && (
+                <iframe src={previewUrl} className="preview-text" title={previewName} />
+              )}
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-accept modal-btn" onClick={() => { setPreviewUrl(null); setPreviewType(null) }} aria-label="關閉預覽">
                 關閉
               </button>
             </div>
@@ -926,10 +1097,10 @@ export default function WebApp() {
             </div>
             <div className="guide-actions">
               <label className="guide-dont-show">
-                <input type="checkbox" onChange={() => {}} />
+                <input type="checkbox" onChange={() => {}} aria-label="下次不再顯示使用說明" />
                 下次不再顯示
               </label>
-              <button className="btn btn-accept modal-btn" onClick={() => setShowGuide(false)}>
+              <button className="btn btn-accept modal-btn" onClick={() => setShowGuide(false)} aria-label="關閉使用說明">
                 知道了
               </button>
             </div>
@@ -946,12 +1117,12 @@ export default function WebApp() {
               <div className="qrcode-error">{qrError}</div>
             ) : (
               <>
-                <div className="qrcode-wrapper"><canvas ref={qrCanvasRef} /></div>
+                <div className="qrcode-wrapper"><canvas ref={qrCanvasRef} role="img" aria-label="QR Code" /></div>
                 <p className="qrcode-label">對方掃描後會自動開啟連線頁面</p>
               </>
             )}
             <div className="modal-actions">
-              <button className="btn btn-accept modal-btn" onClick={() => setShowQR(false)}>關閉</button>
+              <button className="btn btn-accept modal-btn" onClick={() => setShowQR(false)} aria-label="關閉 QR Code">關閉</button>
             </div>
           </div>
         </div>
@@ -992,7 +1163,12 @@ function fileIcon(name: string): { icon: string; cls: string } {
   return map[ext] || ['?', 'file-gray'];
 }
 
-function TxItem({ t, onViewText }: { t: WebTransfer; onViewText?: (text: string) => void }) {
+function TxItem({ t, onViewText, onCancel, onPreview }: {
+  t: WebTransfer
+  onViewText?: (text: string) => void
+  onCancel?: () => void
+  onPreview?: (url: string, name: string) => void
+}) {
   const ii = fileIcon(t.name);
   const handleDownload = () => {
     if (!t.blobUrl) return
@@ -1003,35 +1179,51 @@ function TxItem({ t, onViewText }: { t: WebTransfer; onViewText?: (text: string)
     a.click()
     document.body.removeChild(a)
   }
+  const ext = t.name.split('.').pop()?.toLowerCase() || ''
+  const imgExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico']
+  const canPreview = t.blobUrl && (imgExts.includes(ext) || ext === 'pdf' || t.isText)
   return (
-    <div className={`webapp-tx ${t.status}`}>
+    <div className={`webapp-tx ${t.status}`} role="listitem" aria-label={`${t.direction === 'send' ? '傳送' : '接收'} ${t.name}`}>
       <div className="webapp-tx-row">
-        <div className={`webapp-tx-icon ${ii.cls}`}>{ii.icon}</div>
+        <div className={`webapp-tx-icon ${ii.cls}`} aria-hidden="true">{ii.icon}</div>
         <div className="webapp-tx-body">
           <div className="webapp-tx-name" title={t.name}>{t.name}</div>
           <div className="webapp-tx-meta">
             <span>{fmtSize(t.size)}</span>
             {t.status === 'transferring' && t.speed > 0 && <span>{fmtSpeed(t.speed)}</span>}
             <span className={`webapp-tx-badge ${t.status}`}>
-              {t.status === 'transferring' ? '傳輸中' : t.status === 'done' ? '完成' : '錯誤'}
+              {t.status === 'transferring' ? '傳輸中' : t.status === 'done' ? '完成' : t.status === 'cancelled' ? '已取消' : '錯誤'}
             </span>
           </div>
           {t.status === 'transferring' && (
-            <div className="webapp-tx-bar">
+            <div className="webapp-tx-bar" role="progressbar" aria-valuenow={Math.round(t.progress * 100)} aria-valuemin={0} aria-valuemax={100}>
               <div className="webapp-tx-fill" style={{ width: `${Math.max(t.progress * 100, 2)}%` }} />
             </div>
           )}
+          {t.status === 'cancelled' && t.error && <div className="webapp-tx-err">{t.error}</div>}
           {t.status === 'error' && <div className="webapp-tx-err">{t.error}</div>}
         </div>
+        {t.status === 'transferring' && (
+          <div className="webapp-tx-actions">
+            <button className="webapp-tx-action-btn webapp-tx-cancel" onClick={onCancel} title="取消傳輸" aria-label="取消傳輸">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        )}
         {t.status === 'done' && (
           <div className="webapp-tx-actions">
+            {canPreview && t.blobUrl && onPreview && (
+              <button className="webapp-tx-action-btn" onClick={() => onPreview(t.blobUrl!, t.name)} title="預覽" aria-label="預覽檔案">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            )}
             {t.direction === 'receive' && t.blobUrl && t.isText && t.textContent && (
-              <button className="webapp-tx-action-btn" onClick={() => onViewText?.(t.textContent!)} title="檢視文字">
+              <button className="webapp-tx-action-btn" onClick={() => onViewText?.(t.textContent!)} title="檢視文字" aria-label="檢視文字內容">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
             )}
             {t.blobUrl && (
-              <button className="webapp-tx-action-btn webapp-tx-download" onClick={handleDownload} title={t.direction === 'send' ? '下載備份' : '下載檔案'}>
+              <button className="webapp-tx-action-btn webapp-tx-download" onClick={handleDownload} title={t.direction === 'send' ? '下載備份' : '下載檔案'} aria-label={t.direction === 'send' ? '下載備份' : '下載檔案'}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 下載
               </button>
@@ -1040,7 +1232,7 @@ function TxItem({ t, onViewText }: { t: WebTransfer; onViewText?: (text: string)
         )}
         {t.status === 'error' && t.blobUrl && (
           <div className="webapp-tx-actions">
-            <button className="webapp-tx-action-btn webapp-tx-download" onClick={handleDownload} title="下載（部分檔案）">
+            <button className="webapp-tx-action-btn webapp-tx-download" onClick={handleDownload} title="下載（部分檔案）" aria-label="下載部分檔案">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               下載
             </button>
