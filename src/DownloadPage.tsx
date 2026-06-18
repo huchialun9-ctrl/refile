@@ -108,7 +108,7 @@ export default function DownloadPage({ darkMode, setDarkMode }: Props) {
     fetch('https://api.github.com/repos/huchialun9-ctrl/refile/releases')
       .then(r => r.json())
       .then((data: Release[]) => {
-        setReleases(data)
+        setReleases(Array.isArray(data) ? data : FALLBACK_RELEASES)
         setLoading(false)
       })
       .catch(() => {

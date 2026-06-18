@@ -68,6 +68,7 @@ export default function WebApp() {
   const [qrUrl, setQrUrl] = useState('')
   const [qrError, setQrError] = useState('')
   const [onlinePeers, setOnlinePeers] = useState<Array<{id: string; name: string}>>([])
+  const [peerSearch, setPeerSearch] = useState('')
 
   const sigRef = useRef<SignalingClient | null>(null)
   const peerRef = useRef<WebRTCPeer | null>(null)
@@ -226,13 +227,13 @@ export default function WebApp() {
             const others = msg.peers.filter((p: any) => p.id !== id)
             setOnlinePeers(others)
             // Update BLE device names from peer-list
-            setBtDevices(prev => prev.map(d => {
+            setBtDevices(prev => Array.isArray(prev) ? prev.map(d => {
               const match = others.find((p: any) => p.id === d.peerId)
               if (match && match.name && match.name !== d.name) {
                 return { ...d, name: match.name }
               }
               return d
-            }))
+            }) : [])
           }
         } catch {}
       })
@@ -417,8 +418,8 @@ export default function WebApp() {
     }
   }
 
-  const sends = transfers.filter(t => t.direction === 'send')
-  const receives = transfers.filter(t => t.direction === 'receive')
+  const sends = (Array.isArray(transfers) ? transfers : []).filter(t => t.direction === 'send')
+  const receives = (Array.isArray(transfers) ? transfers : []).filter(t => t.direction === 'receive')
 
   // ── Landing page ──
   if (landing) {
@@ -693,11 +694,20 @@ export default function WebApp() {
             </div>
 
             {/* Online peers */}
-            {onlinePeers.length > 0 && (
+            {(Array.isArray(onlinePeers) && onlinePeers.length > 0) && (
               <div className="wc-section wc-online">
                 <span className="wc-label">在線 ({onlinePeers.length})</span>
+                <input className="wc-peer-search" placeholder="搜尋名稱或 ID…"
+                  value={peerSearch} onChange={e => setPeerSearch(e.target.value.toUpperCase())}
+                  maxLength={20} />
                 <div className="wc-peer-list">
-                  {onlinePeers.slice(0, 5).map(p => (
+                  {(Array.isArray(onlinePeers) ? onlinePeers : [])
+                    .filter(p => {
+                      if (!peerSearch) return true
+                      const q = peerSearch.toUpperCase()
+                      return p.id.includes(q) || (p.name || '').toUpperCase().includes(q)
+                    })
+                    .slice(0, 20).map(p => (
                     <button key={p.id} className={`wc-peer-chip ${connected && remotePeerId === p.id ? 'wc-peer-active' : ''}`}
                       onClick={() => { if (!connected && !connecting) { setInputId(p.id); doConnect(peerId, p.id, sigRef.current!) } }}
                       disabled={connected || connecting}>
@@ -729,7 +739,7 @@ export default function WebApp() {
                   </div>
                   <div className="webapp-dash-card">
                     <span className="webapp-dash-label">傳輸量</span>
-                    <span className="webapp-dash-value">{fmtSize(transfers.filter(t => t.direction === 'send').reduce((a, t) => a + t.size, 0))} ↑ / {fmtSize(transfers.filter(t => t.direction === 'receive').reduce((a, t) => a + t.size, 0))} ↓</span>
+                    <span className="webapp-dash-value">{fmtSize(sends.reduce((a, t) => a + t.size, 0))} ↑ / {fmtSize(receives.reduce((a, t) => a + t.size, 0))} ↓</span>
                   </div>
                 </div>
                 <div className="webapp-dash-actions">

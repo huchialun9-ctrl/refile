@@ -2244,13 +2244,26 @@
   transition: background 0.15s;
 }
 .wc-disc-btn:hover { background: var(--red-bg); }
-@media (max-width: 640px) {
-}
-.wc-peer-list {
+
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
+.wc-peer-search {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+.wc-peer-search:focus { border-color: var(--accent); }
+.wc-peer-search::placeholder { color: var(--text-dim); font-family: inherit; }
 .wc-peer-chip {
   padding: 3px 10px;
   border-radius: 999px;
