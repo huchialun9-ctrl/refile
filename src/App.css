@@ -2190,6 +2190,24 @@
   border-radius: 6px;
   line-height: 1.4;
 }
+.wc-connecting {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.wc-connecting-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top: 2px solid var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .wc-muted {
   font-size: 14px;
   color: var(--text-muted);
@@ -2486,6 +2504,46 @@
 }
 
 /* Drop zone */
+.text-send-bar {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.text-send-input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.text-send-input:focus {
+  border-color: var(--accent);
+}
+.text-send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.text-send-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.text-send-btn:not(:disabled):hover {
+  opacity: 0.85;
+}
 .file-upload-form {
   width: 100%;
   display: flex;

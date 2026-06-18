@@ -55,6 +55,7 @@ export default function WebApp() {
   const [showQR, setShowQR] = useState(false)
   const [showTextShare, setShowTextShare] = useState(false)
   const [textToSend, setTextToSend] = useState('')
+  const [inlineText, setInlineText] = useState('')
   const [showTextPreview, setShowTextPreview] = useState<string | null>(null)
   const [showGuide, setShowGuide] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -217,11 +218,11 @@ export default function WebApp() {
         peerRef.current?.close()
         setConnecting(false)
         connectingRef.current = false
-        setSigError('連線逾時，對方沒有回應')
+        setSigError('連線逾時 — 請確認對方也在線上，且輸入正確的 ID。若兩邊都在防火牆後，可能需改用網頁版或調整網路設定')
         peerRef.current = null
-        setTimeout(() => setSigError(''), 4000)
+        setTimeout(() => setSigError(''), 6000)
       }
-    }, 15000)
+    }, 30000) // 30s timeout (ICE can be slow on some networks)
 
     peer.initiate().catch(e => {
       if (connectTimerRef.current) { clearTimeout(connectTimerRef.current); connectTimerRef.current = null }
@@ -432,11 +433,18 @@ export default function WebApp() {
   const handleSendText = useCallback(() => {
     if (!connected || !textToSend.trim()) return
     const blob = new Blob([textToSend], { type: 'text/plain' })
-    const file = new File([blob], 'clipboard.txt')
+    const file = new File([blob], '文字訊息.txt')
     sendFiles([file])
     setTextToSend('')
     setShowTextShare(false)
   }, [connected, textToSend, sendFiles])
+
+  const sendText = useCallback((text: string) => {
+    if (!connected || !text.trim()) return
+    const blob = new Blob([text], { type: 'text/plain' })
+    const file = new File([blob], '文字訊息.txt')
+    sendFiles([file])
+  }, [connected, sendFiles])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setDragging(false)
@@ -830,6 +838,7 @@ export default function WebApp() {
                   </button>
                 </div>
               )}
+              {connecting && <span className="wc-connecting"><span className="wc-connecting-spinner"></span>正在等待對方接受連線，請確認對方也在線上…</span>}
               {sigError && <span className="wc-err" role="alert">{sigError}</span>}
             </div>
 
@@ -900,6 +909,30 @@ export default function WebApp() {
             {/* Drop zone */}
             {connected ? (
               <div className="file-upload-form">
+                {/* Inline text send bar */}
+                <div className="text-send-bar">
+                  <input className="text-send-input"
+                    placeholder="輸入文字並按 Enter 傳送…"
+                    value={inlineText}
+                    onChange={e => setInlineText(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && inlineText.trim()) {
+                        e.preventDefault()
+                        sendText(inlineText)
+                        setInlineText('')
+                      }
+                    }}
+                    aria-label="輸入要傳送的文字"
+                  />
+                  <button className="text-send-btn" onClick={() => {
+                    if (inlineText.trim()) {
+                      sendText(inlineText)
+                      setInlineText('')
+                    }
+                  }} disabled={!inlineText.trim()} aria-label="傳送文字" aria-disabled={!inlineText.trim()}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  </button>
+                </div>
                 <label className="file-upload-label"
                   onDragOver={e => { e.preventDefault(); setDragging(true) }}
                   onDragLeave={() => setDragging(false)}
@@ -918,11 +951,11 @@ export default function WebApp() {
                     <span className="browse-button" onClick={() => fileInputRef.current?.click()} role="button" tabIndex={0} aria-label="選擇檔案">選擇檔案</span>
                   </div>
                 </label>
-                <button className="dz-text-btn" onClick={() => setShowTextShare(true)} aria-label="傳送文字">
+                <button className="dz-text-btn" onClick={() => setShowTextShare(true)} aria-label="使用文字編輯器">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
                   </svg>
-                  傳送文字
+                  多行文字編輯器
                 </button>
               </div>
             ) : sigOk ? (
@@ -938,7 +971,7 @@ export default function WebApp() {
                   </div>
                   <div className="webapp-idle-step">
                     <span className="webapp-idle-num">3</span>
-                    <span>連上後直接拖曳檔案開始傳</span>
+                    <span>連上後直接拖曳檔案或輸入文字開始傳</span>
                   </div>
                 </div>
               </div>
