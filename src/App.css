@@ -2245,6 +2245,7 @@
 }
 .wc-disc-btn:hover { background: var(--red-bg); }
 
+.wc-peer-list {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
