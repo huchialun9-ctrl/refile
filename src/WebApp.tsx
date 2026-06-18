@@ -47,6 +47,7 @@ export default function WebApp() {
     try { return JSON.parse(localStorage.getItem('rf_transfers') || '[]') } catch { return [] }
   })
   const [dragging, setDragging] = useState(false)
+  const [uptime, setUptime] = useState(0)
   const [showQR, setShowQR] = useState(false)
   const [showTextShare, setShowTextShare] = useState(false)
   const [textToSend, setTextToSend] = useState('')
@@ -294,6 +295,12 @@ export default function WebApp() {
   }
 
   const handleDisconnect = () => { peerRef.current?.close() }
+
+  useEffect(() => {
+    if (!connected) { setUptime(0); return }
+    const iv = setInterval(() => setUptime(u => u + 1), 1000)
+    return () => clearInterval(iv)
+  }, [connected])
 
   const sendFiles = useCallback(async (files: File[]) => {
     const peer = peerRef.current
@@ -713,6 +720,36 @@ export default function WebApp() {
                 <>正在連線⋯</>
               )}
             </div>
+
+            {/* Connection Dashboard */}
+            {connected && (
+              <div className="webapp-dash">
+                <div className="webapp-dash-row">
+                  <div className="webapp-dash-card">
+                    <span className="webapp-dash-label">連線時間</span>
+                    <span className="webapp-dash-value accent">{uptime}s</span>
+                  </div>
+                  <div className="webapp-dash-card">
+                    <span className="webapp-dash-label">加密</span>
+                    <span className="webapp-dash-value green">端對端 AES-GCM</span>
+                  </div>
+                  <div className="webapp-dash-card">
+                    <span className="webapp-dash-label">傳輸量</span>
+                    <span className="webapp-dash-value">{fmtSize(transfers.filter(t => t.direction === 'send').reduce((a, t) => a + t.size, 0))} ↑ / {fmtSize(transfers.filter(t => t.direction === 'receive').reduce((a, t) => a + t.size, 0))} ↓</span>
+                  </div>
+                </div>
+                <div className="webapp-dash-actions">
+                  <button className="webapp-dash-btn" onClick={() => setShowTextShare(true)}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                    傳送文字
+                  </button>
+                  <button className="webapp-dash-btn invite" onClick={handleShareLink}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                    邀請其他人
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Drop zone */}
             {connected ? (
