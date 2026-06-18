@@ -476,7 +476,6 @@ export default function WebApp() {
                     </div>
                   </div>
                 </div>
-              </div>
               <p className="wl-card-title">點對點加密傳輸</p>
               <p className="wl-card-desc">檔案經點對點加密後直接傳輸，絕不儲存於任何伺服器</p>
             </div>
