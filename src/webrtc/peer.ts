@@ -25,12 +25,19 @@ export class WebRTCPeer {
   private unsub: () => void
 
   readonly remotePeerId: string
+  private _closed = false
 
   onOpen?: () => void
   onClose?: () => void
   onError?: (msg: string) => void
   onMeta?: (meta: FileMeta) => void
   onChunk?: (chunk: ArrayBuffer) => void
+
+  private fireClose() {
+    if (this._closed) return
+    this._closed = true
+    this.onClose?.()
+  }
 
   constructor(
     private signaling: SignalingClient,
@@ -50,11 +57,9 @@ export class WebRTCPeer {
 
     this.pc.onconnectionstatechange = () => {
       const s = this.pc.connectionState
-      // Only use connectionstate for error detection;
-      // open/close are handled by data channel events
       if (s === 'disconnected' || s === 'failed' || s === 'closed') {
         this.channel?.close()
-        this.onClose?.()
+        this.fireClose()
       }
     }
 
@@ -99,12 +104,9 @@ export class WebRTCPeer {
     ch.binaryType = 'arraybuffer'
     ch.onopen = () => this.onOpen?.()
     ch.onclose = () => {
-      // PC onconnectionstatechange will also fire onclose when the whole
-      // connection drops. Only fire our callback if PC is still connected
-      // (channel-only closure is rare but possible).
       if (this.pc.connectionState !== 'closed') {
         this.pc.close()
-        this.onClose?.()
+        this.fireClose()
       }
     }
     ch.onerror = (e) => this.onError?.(String(e))
@@ -157,7 +159,7 @@ export class WebRTCPeer {
     const CHUNK = 64 * 1024 // 64 KB
 
     // Ensure buffer is ready before sending meta
-    await this.waitForBuffer()
+    await this.waitForBuffer(signal)
 
     this.channel.send(
       JSON.stringify({
@@ -175,7 +177,7 @@ export class WebRTCPeer {
       if (!this.channel || this.channel.readyState !== 'open') {
         throw new Error('傳輸通道已關閉')
       }
-      await this.waitForBuffer()
+      await this.waitForBuffer(signal)
       if (signal?.aborted) throw new Error('已取消傳輸')
       const buf = await file.slice(sent, sent + CHUNK).arrayBuffer()
       this.channel.send(buf)
@@ -184,12 +186,17 @@ export class WebRTCPeer {
     }
   }
 
-  private waitForBuffer(): Promise<void> {
-    const MAX = 1 * 1024 * 1024 // pause if > 1 MB buffered
-    const TIMEOUT = 10000 // 10s safety timeout
+  private waitForBuffer(signal?: AbortSignal): Promise<void> {
+    const MAX = 1 * 1024 * 1024
+    const TIMEOUT = 10000
     return new Promise((resolve, reject) => {
+      if (signal?.aborted) { reject(new Error('已取消傳輸')); return }
       const timer = setTimeout(() => reject(new Error('傳輸緩衝區逾時')), TIMEOUT)
+      if (signal) {
+        signal.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('已取消傳輸')) }, { once: true })
+      }
       const check = () => {
+        if (signal?.aborted) { clearTimeout(timer); reject(new Error('已取消傳輸')); return }
         if (!this.channel || this.channel.readyState !== 'open') {
           clearTimeout(timer)
           reject(new Error('傳輸通道已關閉'))

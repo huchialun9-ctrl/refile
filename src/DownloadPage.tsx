@@ -105,7 +105,8 @@ export default function DownloadPage({ darkMode, setDarkMode }: Props) {
   }, [darkMode])
 
   useEffect(() => {
-    fetch('https://api.github.com/repos/huchialun9-ctrl/refile/releases')
+    const ac = new AbortController()
+    fetch('https://api.github.com/repos/huchialun9-ctrl/refile/releases', { signal: ac.signal })
       .then(r => r.json())
       .then((data: Release[]) => {
         setReleases(Array.isArray(data) ? data : FALLBACK_RELEASES)
@@ -115,13 +116,14 @@ export default function DownloadPage({ darkMode, setDarkMode }: Props) {
         setLoading(false)
         setReleases(FALLBACK_RELEASES)
       })
+    return () => ac.abort()
   }, [])
 
   return (
     <div className="download-page">
       <div className="download-topbar">
         <label className="main-toggle">
-          <input type="checkbox" className="main-checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} />
+            <input type="checkbox" className="main-checkbox" checked={darkMode} onChange={() => setDarkMode(d => !d)} />
           <div className="main-track"></div>
           <div className="main-knob"></div>
         </label>

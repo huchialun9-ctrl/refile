@@ -101,23 +101,34 @@ export default function WebApp() {
   const [bleStatus, setBleStatus] = useState<string | null>(null)
   const [btAutoScan, setBtAutoScan] = useState(false)
   const bleScanRef = useRef<any>(null)
+  const btScanningRef = useRef(false)
+  const bleListenerRef = useRef<((e: any) => void) | null>(null)
   const [qrUrl, setQrUrl] = useState('')
   const [qrError, setQrError] = useState('')
   const [onlinePeers, setOnlinePeers] = useState<Array<{id: string; name: string}>>([])
   const [peerSearch, setPeerSearch] = useState('')
 
   const stopBtScan = useCallback(async () => {
+    btScanningRef.current = false
     setBtScanning(false)
     setBtAutoScan(false)
     try {
+      if (bleListenerRef.current) {
+        const scan = bleScanRef.current
+        if (scan && typeof scan.removeEventListener === 'function') {
+          scan.removeEventListener('advertisementreceived', bleListenerRef.current)
+        }
+        bleListenerRef.current = null
+      }
       const scan = bleScanRef.current
       if (scan && typeof scan.stop === 'function') { scan.stop(); bleScanRef.current = null }
     } catch {}
   }, [])
 
   const startBtScan = useCallback(async () => {
-    if (btScanning) return
+    if (btScanningRef.current) return
     if (!navigator.bluetooth) { setBleStatus('此瀏覽器不支援 Web Bluetooth API'); setTimeout(() => setBleStatus(null), 4000); return }
+    btScanningRef.current = true
     setBtScanning(true)
     setBleStatus('正在掃描藍牙裝置…')
     try {
@@ -127,13 +138,17 @@ export default function WebApp() {
         bleScanRef.current = scan
         setBtAutoScan(true)
         setBleStatus('藍牙掃描中，偵測到裝置會自動加入列表')
-        scan.addEventListener('advertisementreceived', (e: any) => {
+        const handler = (e: any) => {
           const addr = e.device?.id || e.device?.address || Math.random().toString(36).slice(2, 10)
           const name = e.device?.name || e.name || e.localName || `未知裝置 ${addr.slice(0, 6)}`
           setBtDevices(prev => prev.some(d => d.id === addr) ? prev : [...prev, { id: addr, name, connected: false }])
-        })
+        }
+        bleListenerRef.current = handler
+        scan.addEventListener('advertisementreceived', handler)
       } else {
         // Fallback: requestDevice (requires dialog)
+        btScanningRef.current = false
+        setBtScanning(false)
         const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [] })
         if (device) {
           const id = device.id || Math.random().toString(36).slice(2, 10)
@@ -142,22 +157,24 @@ export default function WebApp() {
           setBleStatus(`已找到裝置: ${name}`)
           setTimeout(() => setBleStatus(null), 3000)
         }
-        setBtScanning(false)
       }
     } catch (e: any) {
+      btScanningRef.current = false
       setBtScanning(false)
       if (e.name !== 'NotFoundError') setBleStatus('藍牙掃描失敗: ' + String(e))
     }
-  }, [btScanning])
+  }, [])
 
   const sigRef = useRef<SignalingClient | null>(null)
   const peerRef = useRef<WebRTCPeer | null>(null)
   const receiverRef = useRef(new FileReceiver())
   const connectedRef = useRef(false)
   const connectingRef = useRef(false)
+  const sendingRef = useRef(false)
   const speedMap = useRef<Record<string, { bytes: number; ts: number }>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
   const qrCanvasRef = useRef<HTMLCanvasElement>(null)
+  const prevBlobUrlsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
@@ -281,11 +298,12 @@ export default function WebApp() {
 
   const handleIncoming = useCallback((from: string, offer: RTCSessionDescriptionInit) => {
     if (connectedRef.current || connectingRef.current) return
+    if (!sigRef.current) return
     connectingRef.current = true
     setConnecting(true)
     peerRef.current?.close()
 
-    const client = sigRef.current!
+    const client = sigRef.current
     const peer = new WebRTCPeer(client, from, false, offer)
     peerRef.current = peer
     setupPeer(peer)
@@ -395,6 +413,7 @@ export default function WebApp() {
 
     return () => {
       if (reconnectTimer) clearTimeout(reconnectTimer)
+      if (connectTimerRef.current) clearTimeout(connectTimerRef.current)
       client.disconnect()
       peerRef.current?.close()
     }
@@ -415,58 +434,68 @@ export default function WebApp() {
   }, [connected])
 
   const sendFiles = useCallback(async (files: File[]) => {
-    const peer = peerRef.current
-    if (!peer?.isOpen()) {
-      setSigError('傳輸通道未開啟，請先連線')
+    if (sendingRef.current) {
+      setSigError('已有傳輸進行中，請等待完成')
       setTimeout(() => setSigError(''), 3000)
       return
     }
-    for (const file of files) {
-      const id = crypto.randomUUID().slice(0, 8)
-      abortRef.current[id] = false
-      const ctrl = new AbortController()
-      abortCtrlRef.current[id] = ctrl
-      speedMap.current[id] = { bytes: 0, ts: Date.now() }
-      const blobUrl = URL.createObjectURL(file)
-      setTransfers(prev => [...prev, {
-        id, name: file.name, size: file.size,
-        direction: 'send', progress: 0, speed: 0,
-        status: 'transferring', createdAt: new Date().toISOString(),
-        blobUrl,
-      }])
-      try {
-        if (abortRef.current[id]) throw new Error('已取消傳輸')
-        await peer.sendFile(file, (sent, total) => {
-          if (abortRef.current[id]) return
-          setTransfers(prev => prev.map(t => {
-            if (t.id !== id) return t
-            const tr = speedMap.current[id]
-            let speed = 0
-            if (tr) {
-              const dt = (Date.now() - tr.ts) / 1000
-              if (dt > 0.2) { speed = (sent - tr.bytes) / dt; speedMap.current[id] = { bytes: sent, ts: Date.now() } }
-            }
-            return { ...t, progress: sent / total, speed, status: sent >= total ? 'done' : 'transferring' }
-          }))
-        }, ctrl.signal)
-        if (!abortRef.current[id]) {
-          setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'done', progress: 1, speed: 0 } : t))
-        }
-      } catch (e) {
-        const err = String(e)
-        if (abortRef.current[id]) {
-          setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'cancelled', error: '已取消傳輸' } : t))
-        } else {
-          setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'error', error: err } : t))
+    sendingRef.current = true
+    try {
+      const peer = peerRef.current
+      if (!peer?.isOpen()) {
+        setSigError('傳輸通道未開啟，請先連線')
+        setTimeout(() => setSigError(''), 3000)
+        return
+      }
+      for (const file of files) {
+        const id = crypto.randomUUID().slice(0, 8)
+        abortRef.current[id] = false
+        const ctrl = new AbortController()
+        abortCtrlRef.current[id] = ctrl
+        speedMap.current[id] = { bytes: 0, ts: Date.now() }
+        const blobUrl = URL.createObjectURL(file)
+        setTransfers(prev => [...prev, {
+          id, name: file.name, size: file.size,
+          direction: 'send', progress: 0, speed: 0,
+          status: 'transferring', createdAt: new Date().toISOString(),
+          blobUrl,
+        }])
+        try {
+          if (abortRef.current[id]) throw new Error('已取消傳輸')
+          await peer.sendFile(file, (sent, total) => {
+            if (abortRef.current[id]) return
+            setTransfers(prev => prev.map(t => {
+              if (t.id !== id) return t
+              const tr = speedMap.current[id]
+              let speed = 0
+              if (tr) {
+                const dt = (Date.now() - tr.ts) / 1000
+                if (dt > 0.2) { speed = (sent - tr.bytes) / dt; speedMap.current[id] = { bytes: sent, ts: Date.now() } }
+              }
+              return { ...t, progress: sent / total, speed, status: sent >= total ? 'done' : 'transferring' }
+            }))
+          }, ctrl.signal)
+          if (!abortRef.current[id]) {
+            setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'done', progress: 1, speed: 0 } : t))
+          }
+        } catch (e) {
+          const err = String(e)
+          if (abortRef.current[id]) {
+            setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'cancelled', error: '已取消傳輸' } : t))
+          } else {
+            setTransfers(prev => prev.map(t => t.id === id ? { ...t, status: 'error', error: err } : t))
+          }
         }
       }
+    } finally {
+      sendingRef.current = false
     }
   }, [])
 
   useEffect(() => {
     if (!('Notification' in window)) return
     if (Notification.permission === 'denied') return
-    if (Notification.permission === 'default') { Notification.requestPermission() }
+    if (Notification.permission === 'default') { Notification.requestPermission().then(p => { if (p !== 'granted') return }) }
     const newDone = transfers.filter(t => t.status === 'done' && t.direction === 'receive' && !notifiedRef.current.has(t.id))
     newDone.forEach(t => {
       try {
@@ -484,6 +513,16 @@ export default function WebApp() {
     setTextToSend('')
     setShowTextShare(false)
   }, [connected, textToSend, sendFiles])
+
+  // Revoke stale blob URLs to prevent memory leaks
+  useEffect(() => {
+    const current = new Set<string>()
+    transfers.forEach(t => { if (t.blobUrl) current.add(t.blobUrl) })
+    prevBlobUrlsRef.current.forEach(url => {
+      if (!current.has(url)) URL.revokeObjectURL(url)
+    })
+    prevBlobUrlsRef.current = current
+  }, [transfers])
 
   const sendText = useCallback((text: string) => {
     if (!connected || !text.trim()) return
