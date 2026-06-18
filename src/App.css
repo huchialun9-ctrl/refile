@@ -2042,7 +2042,7 @@
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body, ui-sans-serif, system-ui, sans-serif);
-
+}
 
 /* ── Background (circuit grid) ── */
 .webapp-bg {

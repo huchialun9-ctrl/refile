@@ -44,7 +44,11 @@ export default function WebApp() {
   const [sigOk, setSigOk] = useState(false)
   const [sigError, setSigError] = useState('')
   const [transfers, setTransfers] = useState<WebTransfer[]>(() => {
-    try { return JSON.parse(localStorage.getItem('rf_transfers') || '[]') } catch { return [] }
+    try {
+      const raw = JSON.parse(localStorage.getItem('rf_transfers') || '[]')
+      // Strip stale blob URLs — only valid in current session
+      return raw.map((t: WebTransfer) => ({ ...t, blobUrl: undefined, textContent: undefined }))
+    } catch { return [] }
   })
   const [dragging, setDragging] = useState(false)
   const [uptime, setUptime] = useState(0)
@@ -79,7 +83,10 @@ export default function WebApp() {
   }, [darkMode])
 
   useEffect(() => {
-    try { localStorage.setItem('rf_transfers', JSON.stringify(transfers)) } catch {}
+    try {
+      const clean = transfers.map(({ blobUrl, textContent, ...rest }) => rest)
+      localStorage.setItem('rf_transfers', JSON.stringify(clean))
+    } catch {}
   }, [transfers])
 
   const setupPeer = useCallback((peer: WebRTCPeer) => {
@@ -99,6 +106,10 @@ export default function WebApp() {
       connectedRef.current = false
       connectingRef.current = false
       peerRef.current = null
+      // Mark in-progress transfers as failed
+      setTransfers(prev => prev.map(t =>
+        t.status === 'transferring' ? { ...t, status: 'error', error: '連線中斷' } : t
+      ))
     }
     peer.onError = (msg) => {
       setConnecting(false)
@@ -108,9 +119,11 @@ export default function WebApp() {
     }
 
     let currentRxId = ''
+    const rxMetaMap = new Map<string, { name: string }>()
     peer.onMeta = (meta: FileMeta) => {
       const id = crypto.randomUUID().slice(0, 8)
       currentRxId = id
+      rxMetaMap.set(id, { name: meta.name })
       speedMap.current[id] = { bytes: 0, ts: Date.now() }
       receiver.setMeta(meta)
       setTransfers(prev => [...prev, {
@@ -119,9 +132,10 @@ export default function WebApp() {
         status: 'transferring', createdAt: new Date().toISOString(),
       }])
 
+      const rxId = id
       receiver.onProgress = (got, total) => {
         setTransfers(prev => prev.map(t => {
-          if (t.id !== currentRxId) return t
+          if (t.id !== rxId) return t
           const tr = speedMap.current[t.id]
           let speed = 0
           if (tr) {
@@ -137,7 +151,7 @@ export default function WebApp() {
         const isText = blob.type.startsWith('text/') || name.endsWith('.txt') || name.endsWith('.md')
         const update = (extra: Partial<WebTransfer>) => {
           setTransfers(prev => prev.map(t =>
-            t.id === currentRxId ? { ...t, status: 'done', progress: 1, speed: 0, blobUrl: url, ...extra } : t
+            t.id === rxId ? { ...t, status: 'done', progress: 1, speed: 0, blobUrl: url, ...extra } : t
           ))
         }
         if (isText) {
@@ -152,6 +166,7 @@ export default function WebApp() {
 
   const doConnect = useCallback((localId: string, remoteId: string, client: SignalingClient) => {
     if (remoteId === localId) return
+    if (connectedRef.current || connectingRef.current) return
     connectingRef.current = true
     setConnecting(true)
     peerRef.current?.close()
@@ -599,9 +614,6 @@ export default function WebApp() {
               <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
             </svg>
           </button>
-          <button className="topbar-btn" title="使用說明" onClick={() => setShowGuide(true)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          </button>
           <button className="topbar-btn" title="下載桌面版"
             onClick={() => window.open(location.pathname + '#download', '_blank')}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -970,6 +982,15 @@ function fileIcon(name: string): { icon: string; cls: string } {
 
 function TxItem({ t, onViewText }: { t: WebTransfer; onViewText?: (text: string) => void }) {
   const ii = fileIcon(t.name);
+  const handleDownload = () => {
+    if (!t.blobUrl) return
+    const a = document.createElement('a')
+    a.href = t.blobUrl
+    a.download = t.name
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
   return (
     <div className={`webapp-tx ${t.status}`}>
       <div className="webapp-tx-row">
@@ -998,10 +1019,10 @@ function TxItem({ t, onViewText }: { t: WebTransfer; onViewText?: (text: string)
               </button>
             )}
             {t.blobUrl && (
-              <a href={t.blobUrl} download={t.name} className="webapp-tx-action-btn webapp-tx-download" title={t.direction === 'send' ? '下載備份' : '下載檔案'}>
+              <button className="webapp-tx-action-btn webapp-tx-download" onClick={handleDownload} title={t.direction === 'send' ? '下載備份' : '下載檔案'}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 下載
-              </a>
+              </button>
             )}
           </div>
         )}
