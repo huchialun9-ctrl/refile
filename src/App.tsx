@@ -84,7 +84,7 @@ function deriveLocalId(): string {
     const stored = localStorage.getItem('reflie_local_id')
     if (stored && stored.length === 8) return stored
   } catch {}
-  const raw = getOSName() + (navigator.userAgent || '')
+  const raw = getOSName() + (navigator.userAgent || '') + Math.random() + Date.now()
   let hash = 0
   for (let i = 0; i < raw.length; i++) {
     hash = ((hash << 5) - hash) + raw.charCodeAt(i)
