@@ -7,20 +7,6 @@
   --tl-offset: calc(var(--tl-bullet-size) / 2 + var(--tl-line-width) + 6px);
   --warning: #f5a623;
   --warning-bg: rgba(255, 193, 7, 0.15);
-
-  /* fallback if index.css missing */
-  --bg: #ffffff;
-  --bg-secondary: #f7f7f7;
-  --bg-card: #ffffff;
-  --text: #1d1d1f;
-  --text-dim: #6e6e74;
-  --text-muted: #aeaeb2;
-  --border: #e5e5ea;
-  --accent: #6d5df4;
-  --green: #34c759;
-  --red: #ff3b30;
-  --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'SF Mono', 'Cascadia Code', monospace;
 }
 
 /* ── Sidebar ── */
@@ -3047,7 +3033,7 @@
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-.main-checkbox { display: none; }
+.main-checkbox { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
 .main-track {
   position: absolute;
   top: 0; left: 0;
