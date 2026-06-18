@@ -81,10 +81,16 @@ function getOSName(): string {
 
 function deriveLocalId(): string {
   try {
-    const stored = localStorage.getItem('reflie_local_id')
+    const stored = localStorage.getItem('reflie_peer_id')
     if (stored && stored.length === 8) return stored
+    // Migrate from old key
+    const old = localStorage.getItem('reflie_local_id')
+    if (old && old.length === 8) { localStorage.setItem('reflie_peer_id', old); return old }
   } catch {}
-  const raw = getOSName() + (navigator.userAgent || '') + Math.random() + Date.now()
+  // Use UUID for true uniqueness (falls back to Math.random)
+  let unique: string
+  try { unique = crypto.randomUUID() } catch { unique = Math.random().toString(36).substring(2) + Date.now().toString(36) }
+  const raw = getOSName() + (navigator.userAgent || '') + unique
   let hash = 0
   for (let i = 0; i < raw.length; i++) {
     hash = ((hash << 5) - hash) + raw.charCodeAt(i)
