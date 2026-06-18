@@ -14,6 +14,7 @@ pub struct IncomingMsg {
 }
 
 pub struct ControlChannel {
+    #[allow(dead_code)]
     pub sender: mpsc::Sender<IncomingMsg>,
     pub receiver: mpsc::Receiver<IncomingMsg>,
 }

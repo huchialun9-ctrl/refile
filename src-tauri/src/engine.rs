@@ -425,7 +425,25 @@ impl TransferEngine {
         let file_size = session_info.as_ref().map(|s| s.file_size).unwrap_or(0);
 
         let downloads = app_handle.path().app_data_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
-        let dest_path = downloads.join("downloads").join(&file_name);
+        let download_dir = downloads.join("downloads");
+        tokio::fs::create_dir_all(&download_dir).await.ok();
+        let dest_path = {
+            let mut p = download_dir.join(&file_name);
+            let stem = file_name
+                .rsplit_once('.')
+                .map(|(s, _)| s.to_string())
+                .unwrap_or_else(|| file_name.clone());
+            let ext = file_name
+                .rsplit_once('.')
+                .map(|(_, e)| format!(".{e}"))
+                .unwrap_or_default();
+            let mut counter = 1;
+            while p.exists() {
+                p = download_dir.join(format!("{stem} ({counter}){ext}"));
+                counter += 1;
+            }
+            p
+        };
         let (received_session_id, hash) = receive_file_with_session(&mut buf_reader, &dest_path, file_size).await?;
 
         if received_session_id != session_id {
@@ -442,8 +460,13 @@ impl TransferEngine {
         }
         {
             let mut v = verifying_hashes.lock().await;
-            v.insert(session_id, hash);
+            v.insert(session_id.clone(), hash);
         }
+
+        let _ = app_handle.emit("transfer-saved", &serde_json::json!({
+            "sessionId": session_id,
+            "savedPath": dest_path.to_string_lossy(),
+        }));
 
         Ok(())
     }

@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import type { TransferSession } from './types'
@@ -6,48 +6,29 @@ import type { TransferSession } from './types'
 interface Props {
   transfers: TransferSession[]
   selectedPeer: boolean
-  onDrop: (files: FileList) => void
+  onDrop: (paths: string[]) => void
 }
 
 export default function FolderCard({ transfers, selectedPeer, onDrop }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [dragging, setDragging] = useState(false)
-
   const pending = transfers.filter(t => t.status === 'Pending' || t.status === 'Transferring')
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    if (selectedPeer) setDragging(true)
-  }
-
-  const handleDragLeave = () => setDragging(false)
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setDragging(false)
-    if (selectedPeer) onDrop(e.dataTransfer.files)
-  }
 
   const handlePickFile = useCallback(async () => {
     if (!selectedPeer) return
     try {
-      const selected = await open({ multiple: false })
+      const selected = await open({ multiple: true })
       if (selected) {
-        await invoke('send_file', { peerId: selectedPeer, filePath: selected })
+        const paths = Array.isArray(selected) ? selected : [selected]
+        for (const fp of paths) {
+          await invoke('send_file', { peerId: selectedPeer, filePath: fp }).catch(console.error)
+        }
       }
     } catch (e) {
-      console.warn('Tauri dialog not available, using browser fallback:', e)
-      inputRef.current?.click()
+      console.warn('Tauri dialog not available:', e)
     }
   }, [selectedPeer])
 
   return (
-    <div
-      className={`ncard ${!selectedPeer ? 'ncard-disabled' : ''} ${dragging ? 'ncard-dragging' : ''}`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
+    <div className={`ncard ${!selectedPeer ? 'ncard-disabled' : ''}`}>
       {selectedPeer ? (
         <>
           {pending.length > 0 && (
@@ -69,16 +50,6 @@ export default function FolderCard({ transfers, selectedPeer, onDrop }: Props) {
               </div>
             </label>
           </div>
-
-          <input
-            ref={inputRef}
-            type="file"
-            hidden
-            multiple
-            onChange={e => {
-              if (e.target.files && selectedPeer) onDrop(e.target.files)
-            }}
-          />
         </>
       ) : (
         <div className="ncard-disconnected">

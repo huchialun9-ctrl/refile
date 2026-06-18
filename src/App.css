@@ -711,6 +711,22 @@
   margin-top: 6px;
 }
 
+.btn-open-folder {
+  margin-top: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.btn-open-folder:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
 /* ── Buttons ── */
 .btn {
   padding: 5px 14px;

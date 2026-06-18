@@ -87,5 +87,6 @@ pub enum ControlMessage {
 pub const SERVICE_TYPE: &str = "_refile._tcp.local.";
 pub const CHUNK_SIZE: usize = 4 * 1024 * 1024; // 4MB
 pub const SYNC_INTERVAL_MS: u64 = 200;
+#[allow(dead_code)]
 pub const CONTROL_PORT: u16 = 0; // auto-assign
 pub const DATA_PORT: u16 = 0;    // auto-assign

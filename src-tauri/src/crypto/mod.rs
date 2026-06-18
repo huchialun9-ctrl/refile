@@ -6,12 +6,14 @@ use sha2::Digest;
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
+#[allow(dead_code)]
 pub fn hash_sha256(data: &[u8]) -> String {
     let mut hasher = sha2::Sha256::new();
     hasher.update(data);
     hex::encode(hasher.finalize())
 }
 
+#[allow(dead_code)]
 pub async fn hash_reader(reader: &mut (impl AsyncRead + Unpin)) -> Result<String> {
     let mut hasher = sha2::Sha256::new();
     let mut buf = vec![0u8; 65536];

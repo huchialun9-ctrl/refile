@@ -34,4 +34,5 @@ export interface TransferSession {
   speed: number;
   hash: string;
   created_at: string;
+  savedPath?: string;
 }

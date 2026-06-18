@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { sendNotification, isPermissionGranted, requestPermission } from '@tauri-apps/plugin-notification'
+
 import type { DeviceInfo, TransferSession } from './types'
 import DeviceCard from './DeviceCard'
 import FolderCard from './FolderCard'
@@ -363,19 +364,30 @@ function App() {
       setPendingSession(prev => prev?.id === payload ? null : prev)
     })
 
+    safeListen<{sessionId: string; savedPath: string}>('transfer-saved', payload => {
+      setTransfers(prev => {
+        const s = prev[payload.sessionId]
+        if (!s) return prev
+        return { ...prev, [payload.sessionId]: { ...s, savedPath: payload.savedPath } }
+      })
+    })
+
+    if (isTauri) {
+      safeListen<{type: string; paths: string[]; position: {x: number; y: number}}>('tauri://drag-drop', payload => {
+        if (payload.type === 'drop' && payload.paths?.length) {
+          handleFileDrop(payload.paths)
+        }
+      })
+    }
+
     return () => { unsubs.forEach(fn => fn()) }
   }, [])
 
-  const handleFileDrop = useCallback(async (files: FileList) => {
+  const handleFileDrop = useCallback(async (paths: string[]) => {
     if (!selectedPeer) return
-    for (const f of files) {
+    for (const fp of paths) {
       try {
-        const buf = await f.arrayBuffer()
-        const bytes = new Uint8Array(buf)
-        const bin = Array.from(bytes).map(b => String.fromCharCode(b)).join('')
-        const dataBase64 = btoa(bin)
-        const tempPath = await invoke<string>('write_temp_file', { dataBase64, fileName: f.name })
-        await invoke('send_file', { peerId: selectedPeer, filePath: tempPath })
+        await invoke('send_file', { peerId: selectedPeer, filePath: fp })
       } catch (e) { console.error(e) }
     }
   }, [selectedPeer])
@@ -402,14 +414,13 @@ function App() {
 
   const handleSendText = useCallback(async () => {
     if (!selectedPeer || !textToSend.trim()) return
-    const blob = new Blob([textToSend], { type: 'text/plain' })
-    const f = new File([blob], 'clipboard.txt')
-    const dt = new DataTransfer()
-    dt.items.add(f)
-    handleFileDrop(dt.files)
-    setTextToSend('')
-    setShowTextShare(false)
-  }, [selectedPeer, textToSend, handleFileDrop])
+    const tempPath = `${await invoke('get_temp_dir')}\\clipboard.txt`
+    try {
+      await invoke('write_text_file', { path: tempPath, content: textToSend })
+      await invoke('send_file', { peerId: selectedPeer, filePath: tempPath })
+      setTextToSend('')
+    } catch (e) { console.error(e) }
+  }, [selectedPeer, textToSend])
 
   const handleShowQR = useCallback(async () => {
     if (!isTauri) {
@@ -626,6 +637,11 @@ function App() {
           </div>
 
           <time className="tl-time">{formatTime(t.created_at)}</time>
+          {t.savedPath && (
+            <button className="btn btn-open-folder" onClick={() => invoke('open_folder', { path: t.savedPath }).catch(console.error)}>
+              開啟資料夾
+            </button>
+          )}
         </div>
       </div>
     )

@@ -78,6 +78,7 @@ impl ProgressSync {
         });
     }
 
+    #[allow(dead_code)]
     pub async fn stop(&self) {
         let mut running = self.running.lock().await;
         *running = false;

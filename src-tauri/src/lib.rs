@@ -162,6 +162,29 @@ async fn get_bluetooth_status(state: State<'_, AppState>) -> Result<bool, String
 }
 
 #[tauri::command]
+async fn open_folder(path: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    let dir = if p.is_dir() { p.to_path_buf() } else { p.parent().unwrap_or(p).to_path_buf() };
+    std::process::Command::new("explorer")
+        .arg(dir.to_string_lossy().as_ref())
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_temp_dir() -> Result<String, String> {
+    let dir = std::env::temp_dir().join("reflie");
+    tokio::fs::create_dir_all(&dir).await.map_err(|e| e.to_string())?;
+    Ok(dir.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn write_text_file(path: String, content: String) -> Result<(), String> {
+    tokio::fs::write(&path, &content).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn my_info(state: State<'_, AppState>) -> Result<(String, u16), String> {
     let engine = state.engine.lock().await;
     let engine_ref = engine.as_ref().ok_or("Engine not started")?;
@@ -187,27 +210,6 @@ async fn get_devices(state: State<'_, AppState>) -> Result<Vec<DeviceInfo>, Stri
 }
 
 #[tauri::command]
-async fn write_temp_file(
-    data_base64: String,
-    file_name: String,
-) -> Result<String, String> {
-    let bytes = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        &data_base64,
-    )
-    .map_err(|e| e.to_string())?;
-    let temp_dir = std::env::temp_dir().join("reflie");
-    tokio::fs::create_dir_all(&temp_dir)
-        .await
-        .map_err(|e| e.to_string())?;
-    let path = temp_dir.join(&file_name);
-    tokio::fs::write(&path, &bytes)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(path.to_string_lossy().to_string())
-}
-
-#[tauri::command]
 async fn send_file(
     state: State<'_, AppState>,
     app_handle: tauri::AppHandle,
@@ -229,7 +231,6 @@ async fn send_file(
         } else {
             drop(list);
             drop(map);
-            drop(disc);
             drop(d);
             let bt = state.bt_devices.lock().await;
             bt.get(&peer_id)
@@ -347,13 +348,15 @@ pub fn run() {
             get_devices,
             my_info,
             send_file,
-            write_temp_file,
+            write_text_file,
+            get_temp_dir,
             get_transfers,
             accept_transfer,
             cancel_transfer,
             start_bluetooth,
             stop_bluetooth,
             get_bluetooth_status,
+            open_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

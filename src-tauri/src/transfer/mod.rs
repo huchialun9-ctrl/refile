@@ -13,6 +13,7 @@ use tokio_rustls::{TlsAcceptor, TlsConnector};
 
 pub struct TransferStats {
     pub bytes_sent: Arc<Mutex<u64>>,
+    #[allow(dead_code)]
     pub total_bytes: u64,
     pub start_time: Arc<Mutex<std::time::Instant>>,
 }
@@ -26,6 +27,7 @@ impl TransferStats {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn progress(&self) -> f64 {
         let sent = *self.bytes_sent.lock().await;
         if self.total_bytes == 0 {
