@@ -501,7 +501,7 @@ export default function WebApp() {
       client.disconnect()
       peerRef.current?.close()
     }
-  }, [handleIncoming, doConnect])
+  }, [doConnect])
 
   const handleConnect = () => {
     const id = inputId.replace(/[^A-Fa-f0-9]/g, '').toUpperCase().slice(0, 8)

@@ -555,6 +555,29 @@ function App() {
 
   handleIncomingRef.current = handleIncoming
 
+  const acceptIncoming = useCallback(() => {
+    if (!incomingOffer) return
+    const { from, sdp } = incomingOffer
+    if (webrtcConnectedRef.current || webrtcConnectingRef.current) return
+    const sig = sigRef.current
+    if (!sig) return
+    setIncomingOffer(null)
+    webrtcConnectingRef.current = true
+    setSigRemotePeerId(from)
+    try {
+      const offer = new RTCSessionDescription(sdp)
+      const wc = new WebRTCPeer(sig, from, false, offer)
+      webrtcRef.current = setupPeer(wc)
+    } catch (e) {
+      console.error('acceptIncoming error:', e)
+      webrtcConnectingRef.current = false
+    }
+  }, [incomingOffer, setupPeer])
+
+  const rejectIncoming = useCallback(() => {
+    setIncomingOffer(null)
+  }, [])
+
   const handleIdConnect = useCallback(() => {
     const raw = inputPeerId.replace(/[^A-Fa-f0-9]/g, '').toUpperCase().slice(0, 8)
     if (raw.length < 6) return
@@ -752,6 +775,28 @@ function App() {
               <button className="btn btn-reject modal-btn" onClick={() => handleReject(incomingTransfer.id)}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 {i18n.t('app.reject')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {incomingOffer && !incomingTransfer && (
+        <div className="modal-overlay" onClick={rejectIncoming}>
+          <div className="modal-dialog modal-narrow" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <h3>{i18n.t('incomingConnect.title')}</h3>
+            <p className="modal-peer">{i18n.t('incomingConnect.from', { name: incomingOffer.name || incomingOffer.from })}</p>
+            <div className="modal-actions">
+              <button className="btn btn-accept modal-btn" onClick={acceptIncoming}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                {i18n.t('incomingConnect.accept')}
+              </button>
+              <button className="btn btn-reject modal-btn" onClick={rejectIncoming}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                {i18n.t('incomingConnect.reject')}
               </button>
             </div>
           </div>
