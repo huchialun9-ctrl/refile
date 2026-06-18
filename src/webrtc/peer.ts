@@ -44,8 +44,12 @@ export class WebRTCPeer {
 
     this.pc.onconnectionstatechange = () => {
       const s = this.pc.connectionState
-      if (s === 'connected') this.onOpen?.()
-      if (s === 'disconnected' || s === 'failed' || s === 'closed') this.onClose?.()
+      // Only use connectionstate for error detection;
+      // open/close are handled by data channel events
+      if (s === 'disconnected' || s === 'failed' || s === 'closed') {
+        this.channel?.close()
+        this.onClose?.()
+      }
     }
 
     // Handle signaling messages (answer + ICE for initiator; ICE for responder)
@@ -88,7 +92,15 @@ export class WebRTCPeer {
   private setupChannel(ch: RTCDataChannel) {
     ch.binaryType = 'arraybuffer'
     ch.onopen = () => this.onOpen?.()
-    ch.onclose = () => this.onClose?.()
+    ch.onclose = () => {
+      // PC onconnectionstatechange will also fire onclose when the whole
+      // connection drops. Only fire our callback if PC is still connected
+      // (channel-only closure is rare but possible).
+      if (this.pc.connectionState !== 'closed') {
+        this.pc.close()
+        this.onClose?.()
+      }
+    }
     ch.onerror = (e) => this.onError?.(String(e))
     ch.onmessage = (e) => {
       if (typeof e.data === 'string') {
@@ -137,6 +149,9 @@ export class WebRTCPeer {
 
     const CHUNK = 64 * 1024 // 64 KB
 
+    // Ensure buffer is ready before sending meta
+    await this.waitForBuffer()
+
     this.channel.send(
       JSON.stringify({
         type: 'meta',
@@ -148,6 +163,10 @@ export class WebRTCPeer {
 
     let sent = 0
     while (sent < file.size) {
+      // Fail fast if channel closed mid-transfer
+      if (!this.channel || this.channel.readyState !== 'open') {
+        throw new Error('傳輸通道已關閉')
+      }
       await this.waitForBuffer()
       const buf = await file.slice(sent, sent + CHUNK).arrayBuffer()
       this.channel.send(buf)
@@ -158,10 +177,21 @@ export class WebRTCPeer {
 
   private waitForBuffer(): Promise<void> {
     const MAX = 1 * 1024 * 1024 // pause if > 1 MB buffered
-    return new Promise((resolve) => {
+    const TIMEOUT = 10000 // 10s safety timeout
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('傳輸緩衝區逾時')), TIMEOUT)
       const check = () => {
-        if (!this.channel || this.channel.bufferedAmount <= MAX) resolve()
-        else setTimeout(check, 30)
+        if (!this.channel || this.channel.readyState !== 'open') {
+          clearTimeout(timer)
+          reject(new Error('傳輸通道已關閉'))
+          return
+        }
+        if (this.channel.bufferedAmount <= MAX) {
+          clearTimeout(timer)
+          resolve()
+        } else {
+          setTimeout(check, 30)
+        }
       }
       check()
     })
