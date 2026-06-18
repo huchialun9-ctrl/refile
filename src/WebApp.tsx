@@ -700,6 +700,7 @@ export default function WebApp() {
                <a href="#" onClick={e => { e.preventDefault(); setLanding(false) }} aria-label="開始使用應用">開始使用</a>
               <a href="https://opensource.org/license/mit" target="_blank" rel="noopener noreferrer" aria-label="MIT 授權">MIT 授權</a>
               <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer" aria-label="GitHub 專案">GitHub</a>
+              <a href="#docs" aria-label="文檔與資料">文檔</a>
             </nav>
             <label className="main-toggle" style={{ marginLeft: 'auto' }} aria-label={darkMode ? '切換亮色模式' : '切換暗色模式'}>
               <input type="checkbox" className="main-checkbox" checked={darkMode} onChange={() => setDarkMode(d => !d)} />

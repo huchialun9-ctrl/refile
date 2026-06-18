@@ -7,6 +7,7 @@ import type { DeviceInfo, TransferSession } from './types'
 import DeviceCard from './DeviceCard'
 import FolderCard from './FolderCard'
 import DownloadPage from './DownloadPage'
+import DocsPage from './DocsPage'
 import QRCodeModal from './QRCodeModal'
 import PrivacyModal, { loadPrivacy } from './PrivacyModal'
 import ConnectionGuide from './ConnectionGuide'
@@ -131,6 +132,9 @@ function App() {
   const [showDownloadPage, setShowDownloadPage] = useState(
     typeof window !== 'undefined' && window.location.hash === '#download'
   )
+  const [showDocsPage, setShowDocsPage] = useState(
+    typeof window !== 'undefined' && window.location.hash === '#docs'
+  )
 
   // Signaling / WebRTC state
   const sigRef = useRef<SignalingClient | null>(null)
@@ -148,12 +152,16 @@ function App() {
   const handleIncomingRef = useRef<(sig: SignalingClient, data: {sdp: RTCSessionDescriptionInit; from: string; name: string}) => Promise<void>>()
 
   useEffect(() => {
-    const onHash = () => setShowDownloadPage(window.location.hash === '#download')
+    const onHash = () => {
+      setShowDownloadPage(window.location.hash === '#download')
+      setShowDocsPage(window.location.hash === '#docs')
+    }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
   if (!isTauri && showDownloadPage) return <DownloadPage darkMode={darkMode} setDarkMode={setDarkMode} />
+  if (!isTauri && showDocsPage) return <DocsPage darkMode={darkMode} setDarkMode={setDarkMode} />
   if (!isTauri) return <WebApp />
 
   // Tauri-only hooks below — intentional conditional
