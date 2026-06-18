@@ -83,8 +83,6 @@ export default function WebApp() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewType, setPreviewType] = useState<'text' | 'image' | 'pdf' | null>(null)
   const [previewName, setPreviewName] = useState('')
-  const [commits, setCommits] = useState<{sha: string; message: string; url: string}[]>([])
-  const [cardTab, setCardTab] = useState<'commits' | 'issues'>('commits')
   const [roomOpen, setRoomOpen] = useState(false)
   const [dontShow, setDontShow] = useState(
     () => localStorage.getItem('reflie_guide_done') === '1'
@@ -224,16 +222,6 @@ export default function WebApp() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const qrCanvasRef = useRef<HTMLCanvasElement>(null)
   const prevBlobUrlsRef = useRef<Set<string>>(new Set())
-
-  useEffect(() => {
-    fetch('https://api.github.com/repos/huchialun9-ctrl/refile')
-      .then(r => r.json() as Promise<{stargazers_count?: number}>)
-      .catch(() => {})
-    fetch('https://api.github.com/repos/huchialun9-ctrl/refile/commits?per_page=5')
-      .then(r => r.json() as Promise<{sha: string; commit: {message: string}; html_url: string}[]>)
-      .then(d => setCommits(d.map(c => ({ sha: c.sha.slice(0, 7), message: c.commit.message.split('\n')[0], url: c.html_url }))))
-      .catch(() => {})
-  }, [])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
@@ -670,6 +658,7 @@ export default function WebApp() {
 
   const sends = (Array.isArray(transfers) ? transfers : []).filter(t => t.direction === 'send')
   const receives = (Array.isArray(transfers) ? transfers : []).filter(t => t.direction === 'receive')
+  const totalData = [...sends, ...receives].reduce((a, t) => a + t.size, 0)
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     if (!connected || !peerRef.current?.isOpen()) return
@@ -1245,79 +1234,112 @@ export default function WebApp() {
           </div>
 
           <aside className="webapp-doc-panel">
-            <div className="card-container">
-              <div className="card-border"></div>
-              <svg style={{position:'absolute',width:0,height:0}}>
-                <filter id="unopaq"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.65 0"/></filter>
-                <filter id="unopaq2"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.85 0"/></filter>
-                <filter id="unopaq3"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/></filter>
-              </svg>
-              <div className="spin spin-blur"><div className="spin spin-intense"></div></div>
-              <div className="spin spin-inside"></div>
-              <div className="backdrop"></div>
-              <div className="card">
-                <div className="header">
-                  <div className="top-header">
-                    <div className="repo">
-                      <svg className="gh-icon" viewBox="0 0 16 16" fill="currentColor" style={{height:'1.25em',width:'1.25em'}}>
-                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-                      </svg>
-                      <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer">huchialun9-ctrl</a>
-                      <span className="repo-slash">/</span>
-                      <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer" className="repo-name">refile</a>
-                    </div>
-                    <div className="space"></div>
-                    <div className="icon" onClick={() => window.open('https://github.com/huchialun9-ctrl/refile', '_blank')}>
-                      <svg viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-                      </svg>
-                    </div>
-                    <div className="icon" onClick={() => window.open('https://github.com/huchialun9-ctrl/refile/stargazers', '_blank')}>
-                      <svg viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25zm0 2.445L6.615 5.5a.75.75 0 01-.564.41l-3.097.45 2.24 2.184a.75.75 0 01.216.664l-.528 3.084 2.769-1.456a.75.75 0 01.698 0l2.77 1.456-.53-3.084a.75.75 0 01.216-.664l2.24-2.183-3.096-.45a.75.75 0 01-.564-.41L8 2.694z"/>
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="btm-header">
-                    <div className={`tab${cardTab === 'commits' ? ' active' : ''}`} onClick={() => setCardTab('commits')} role="tab" aria-selected={cardTab === 'commits'}>
-                      <svg className="tab-icon" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8zm9 3a1 1 0 11-2 0 1 1 0 012 0zm-.23-5.36l-.26 2.02a.47.47 0 01-.49.42h-.04a.47.47 0 01-.49-.42l-.26-2.02A.87.87 0 017 4.87v-.37c0-.33.28-.5.5-.5h1c.22 0 .5.17.5.5v.37c0 .36-.07.68-.23.77z"/>
-                      </svg>
-                      最近更新
-                    </div>
-                    <div className="tab" onClick={() => window.open('https://github.com/huchialun9-ctrl/refile/issues', '_blank')} role="tab">
-                      <svg className="tab-icon" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M8 9.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM8 0a8 8 0 110 16A8 8 0 018 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z"/>
-                      </svg>
-                      Issues
-                    </div>
-                  </div>
+            {/* Transfer Stats */}
+            <div className="dp-card">
+              <div className="dp-card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                傳輸統計
+              </div>
+              <div className="dp-stats-row">
+                <div className="dp-stat">
+                  <span className="dp-stat-value">{sends.filter(t => t.status === 'done').length}</span>
+                  <span className="dp-stat-label">已傳送</span>
                 </div>
-                <div className="content">
-                  <div className="prs">
-                    {commits.length === 0 && (
-                      <div className="pr"><div className="pr-text"><div className="pr-title" style={{color:'#797d86',fontSize:12}}>載入中…</div></div></div>
-                    )}
-                    {commits.map(c => (
-                      <div key={c.sha} className="pr">
-                        <label className="checkbox" onClick={e => e.stopPropagation()}>
-                          <input type="checkbox" />
-                          <div className="checkbox"></div>
-                        </label>
-                        <div className="pr-icon">
-                          <svg viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M8 4a4 4 0 110 8 4 4 0 010-8z"/>
-                          </svg>
-                        </div>
-                        <div className="pr-text">
-                          <div className="pr-title" onClick={() => window.open(c.url, '_blank')}>{c.message}</div>
-                          <div className="pr-desc">{c.sha}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="dp-stat">
+                  <span className="dp-stat-value">{receives.filter(t => t.status === 'done').length}</span>
+                  <span className="dp-stat-label">已接收</span>
+                </div>
+                <div className="dp-stat">
+                  <span className="dp-stat-value">{fmtSize(totalData)}</span>
+                  <span className="dp-stat-label">總傳輸量</span>
                 </div>
               </div>
+            </div>
+
+            {/* Network Status */}
+            <div className="dp-section">
+              <div className="dp-section-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                網路狀態
+              </div>
+              <div className="dp-item">
+                <span className={`status-dot-indicator ${sigOk ? (connected ? 'green' : 'yellow') : 'red'}`} />
+                訊號伺服器: {sigOk ? (connected ? '已連線' : '待連線') : '未連線'}
+              </div>
+              <div className="dp-item">
+                <span className={`status-dot-indicator ${connected ? 'green' : 'red'}`} />
+                點對點通道: {connected ? `已連線 (${uptime}s)` : '未連線'}
+              </div>
+              <div className="dp-item">
+                <span className={`status-dot-indicator ${sigOk ? 'green' : 'red'}`} />
+                連線 ID: {sigOk ? fmtPeer(peerId) : '—'}
+              </div>
+            </div>
+
+            {/* Security */}
+            <div className="dp-section">
+              <div className="dp-section-header">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                安全性與隱私
+              </div>
+              <div className="dp-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+                端到端加密（AES-GCM）
+              </div>
+              <div className="dp-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+                直連傳輸，不經任何伺服器
+              </div>
+              <div className="dp-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+                傳完即清除，不留暫存
+              </div>
+              <div className="dp-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+                開放原始碼（MIT 授權）
+              </div>
+            </div>
+
+            {/* Tips */}
+            <div className="dp-section">
+              <div className="dp-section-header">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                使用技巧
+              </div>
+              <div className="dp-item"><span className="dp-item-dot" /><kbd>Ctrl+V</kbd> 貼上圖片或文字直接傳</div>
+              <div className="dp-item"><span className="dp-item-dot" />可一次拖曳多個檔案</div>
+              <div className="dp-item"><span className="dp-item-dot" /><kbd>Enter</kbd> 快速傳送輸入框的文字</div>
+              <div className="dp-item"><span className="dp-item-dot" />藍牙掃描區網裝置快速配對</div>
+            </div>
+
+            {/* Community */}
+            <div className="dp-section">
+              <div className="dp-section-header">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                社群
+              </div>
+              <div className="dp-community">
+                <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer" className="dp-link-btn" aria-label="GitHub 專案">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                  GitHub
+                </a>
+                <a href="https://github.com/huchialun9-ctrl/refile/issues" target="_blank" rel="noopener noreferrer" className="dp-link-btn" aria-label="回報問題">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 9.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM8 0a8 8 0 110 16A8 8 0 018 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z"/></svg>
+                  回報問題
+                </a>
+                <a href="https://github.com/huchialun9-ctrl/refile/discussions" target="_blank" rel="noopener noreferrer" className="dp-link-btn" aria-label="討論區">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0113.25 12H9.06l-2.573 2.573A1.457 1.457 0 014 13.543V12H2.75A1.75 1.75 0 011 10.25v-7.5zM2.75 2.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h2v2.793l2.793-2.793H13.25a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25H2.75z"/></svg>
+                  討論
+                </a>
+              </div>
+            </div>
+
+            {/* Footer info */}
+            <div className="dp-footer">
+              re/file v0.2.0 <span className="dp-footer-sep">·</span>
+              <a href="https://opensource.org/license/mit" target="_blank" rel="noopener noreferrer">MIT 授權</a>
+              <span className="dp-footer-sep">·</span>
+              <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer">GitHub</a>
             </div>
           </aside>
           </div>

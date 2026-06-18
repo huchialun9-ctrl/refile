@@ -261,10 +261,9 @@ function App() {
 
     // Try connecting with fallback
     ;(async () => {
-      const urls = [
-        'ws://localhost:3001/ws',
-        'ws://localhost:5000/ws',
-      ]
+      const urls = (import.meta.env.VITE_SIGNAL_URLS as string | undefined)
+        ?.split(',').map(u => u.trim()).filter(Boolean)
+        ?? ['ws://localhost:3001/ws', 'ws://localhost:5000/ws']
       for (const url of urls) {
         if (cancelled) return
         try {
