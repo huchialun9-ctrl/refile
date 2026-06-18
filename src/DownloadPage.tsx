@@ -69,6 +69,13 @@ function AssetIcon({ name }: { name: string }) {
 
 const FALLBACK_RELEASES: Release[] = [
   {
+    tag_name: 'v0.2.0',
+    name: 'v0.2.0',
+    body: 'v0.2.0 重大更新\n\n新功能:\n- 藍牙掃描: 掃描附近 BLE 裝置，自動配對在線用戶\n- 即時文字傳輸: 連線後上方文字欄輸入 Enter 即送\n- 內嵌預覽: 圖片/PDF/文字檔可直接預覽\n- 邀請功能 + QR Code\n- 貼上傳送: Ctrl+V 可直接貼上圖片或文字\n- 瀏覽器通知\n\n改進:\n- 連線逾時 15s→30s\n- 佈局加寬，響應式支援',
+    published_at: '2026-06-17T00:00:00Z',
+    assets: []
+  },
+  {
     tag_name: 'v0.1.0',
     name: 'v0.1.0',
     body: 'v0.1.0 第二版\n\n新功能:\n- 系統匣支援 (關閉最小化到系統匣)\n- 傳輸完成系統通知\n- 隱私權設定面板\n- Cookie 偏好管理\n- 拖曳檔案上傳支援\n- 傳輸歷史記錄持久化 (localStorage)\n- 清除傳輸記錄按鈕\n- 下載頁面島嶼按鈕 (新分頁開啟)\n- 改寫 README',
