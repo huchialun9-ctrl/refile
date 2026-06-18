@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from './i18n'
 import QRCode from 'qrcode'
-import { SignalingClient } from './webrtc/signaling'
+import { SignalingClient, getDeviceName, setDeviceName } from './webrtc/signaling'
 import { WebRTCPeer, type FileMeta } from './webrtc/peer'
 import { FileReceiver } from './webrtc/transfer'
 import PwaInstallPrompt from './PwaInstallPrompt'
@@ -89,6 +89,11 @@ export default function WebApp() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewType, setPreviewType] = useState<'text' | 'image' | 'pdf' | null>(null)
   const [previewName, setPreviewName] = useState('')
+  const [deviceName, setDeviceNameState] = useState(() => getDeviceName())
+  const deviceNameRef = useRef(deviceName)
+  deviceNameRef.current = deviceName
+  const [editingDeviceName, setEditingDeviceName] = useState(false)
+  const [deviceNameInput, setDeviceNameInput] = useState('')
   const [incomingOffer, setIncomingOffer] = useState<{ from: string; sdp: RTCSessionDescriptionInit } | null>(null)
   const [incomingPeerName, setIncomingPeerName] = useState('')
   const [roomOpen, setRoomOpen] = useState(false)
@@ -348,7 +353,7 @@ export default function WebApp() {
       }
     }, 30000) // 30s timeout (ICE can be slow on some networks)
 
-    peer.initiate().catch(e => {
+    peer.initiate(deviceNameRef.current).catch(e => {
       if (connectTimerRef.current) { clearTimeout(connectTimerRef.current); connectTimerRef.current = null }
       setConnecting(false)
       connectingRef.current = false
@@ -393,14 +398,6 @@ export default function WebApp() {
     const client = new SignalingClient()
     sigRef.current = client
 
-    const ua = navigator.userAgent
-    let deviceName = 'Web'
-    if (/Android/i.test(ua)) deviceName = 'Android'
-    else if (/iPhone|iPad|iPod/i.test(ua)) deviceName = 'iOS'
-    else if (/Windows/i.test(ua)) deviceName = 'Windows'
-    else if (/Mac/i.test(ua)) deviceName = 'macOS'
-    else if (/Linux/i.test(ua)) deviceName = 'Linux'
-
     client.connect().then(id => {
       // Check if this effect was already cleaned up (StrictMode double-mount)
       if (!sigRef.current) return
@@ -408,7 +405,6 @@ export default function WebApp() {
       setSigOk(true)
       setWsState('ok')
 
-      // Send our device info
       client.send({ type: 'peer-info', name: deviceName })
 
       // Listen for raw WebSocket messages (peer-list etc.)
@@ -474,7 +470,6 @@ export default function WebApp() {
         try {
           const newId = await client.reconnect()
           if (!sigRef.current) return
-          // Re-send peer-info and restore state
           client.send({ type: 'peer-info', name: deviceName })
           setPeerId(newId)
           setSigOk(true)
@@ -979,6 +974,25 @@ export default function WebApp() {
               {sigOk ? (
                 <>
                   <span className="wc-id">{fmtPeer(peerId)}</span>
+                  <div className="wc-device-name">
+                    {editingDeviceName ? (
+                      <input
+                        className="wc-device-input"
+                        value={deviceNameInput}
+                        onChange={e => setDeviceNameInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { setDeviceName(deviceNameInput); setDeviceNameState(deviceNameInput); setEditingDeviceName(false) } }}
+                        autoFocus
+                        maxLength={24}
+                      />
+                    ) : (
+                      <span className="wc-device-label" title={t('myid.editName')}>
+                        {deviceName}
+                        <button className="wc-btn-icon" onClick={() => { setDeviceNameInput(deviceName); setEditingDeviceName(true) }} aria-label={t('myid.editName')}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                      </span>
+                    )}
+                  </div>
                   <div className="wc-btns">
                     <button className="wc-btn" onClick={handleCopyId} title={t('myid.copy')} aria-label={t('myid.copy')}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>

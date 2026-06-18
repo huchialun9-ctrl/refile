@@ -12,7 +12,7 @@ import QRCodeModal from './QRCodeModal'
 import PrivacyModal, { loadPrivacy } from './PrivacyModal'
 import ConnectionGuide from './ConnectionGuide'
 import WebApp from './WebApp'
-import { SignalingClient } from './webrtc/signaling'
+import { SignalingClient, getDeviceName } from './webrtc/signaling'
 import { WebRTCPeer } from './webrtc/peer'
 import './App.css'
 import i18n from './i18n'
@@ -291,6 +291,7 @@ function App() {
           setSigOk(true)
           setSigConnecting(false)
           setSigError('')
+          sig.send({ type: 'peer-info', name: getDeviceName() })
           return
         } catch {
           // try next
@@ -540,7 +541,7 @@ function App() {
     try {
       const wc = new WebRTCPeer(sig, targetId, true)
       webrtcRef.current = setupPeer(wc)
-      await wc.initiate()
+      await wc.initiate(getDeviceName())
     } catch (e) {
       console.error('doConnect error:', e)
       webrtcConnectingRef.current = false

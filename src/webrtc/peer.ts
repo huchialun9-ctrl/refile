@@ -140,10 +140,10 @@ export class WebRTCPeer {
   }
 
   /** Call after constructing the initiator peer to send the offer. */
-  async initiate() {
+  async initiate(deviceName?: string) {
     const offer = await this.pc.createOffer()
     await this.pc.setLocalDescription(offer)
-    this.signaling.signal(this.remotePeerId, { type: 'offer', sdp: offer })
+    this.signaling.signal(this.remotePeerId, { type: 'offer', sdp: offer, name: deviceName })
   }
 
   /** Send a file over the DataChannel. */

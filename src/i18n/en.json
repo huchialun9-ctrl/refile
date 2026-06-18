@@ -34,6 +34,7 @@
   "myid.copied": "Copied",
   "myid.qr": "QR",
   "myid.shareLink": "Share",
+  "myid.editName": "Edit device name",
   "myid.fetching": "Getting ID…",
 
   "connect.label": "Connect to Peer",

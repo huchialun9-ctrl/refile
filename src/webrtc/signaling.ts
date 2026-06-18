@@ -1,6 +1,43 @@
 type SignalCallback = (from: string, data: unknown) => void
 type RawMessageCallback = (raw: string) => void
 
+export function detectBrowser(): string {
+  const ua = navigator.userAgent
+  if (/Edg\/|Edge\//.test(ua)) return 'Edge'
+  if (/Chrome\//.test(ua)) return 'Chrome'
+  if (/Firefox\//.test(ua)) return 'Firefox'
+  if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return 'Safari'
+  return 'Browser'
+}
+
+export function detectOS(): string {
+  const ua = navigator.userAgent
+  if (/Windows NT 10/.test(ua)) return 'Windows 10'
+  if (/Windows NT 11/.test(ua)) return 'Windows 11'
+  if (/Windows/.test(ua)) return 'Windows'
+  const mac = ua.match(/Mac OS X ([\d._]+)/)
+  if (mac) return `macOS ${mac[1].replace(/_/g, '.')}`
+  const ios = ua.match(/OS (\d+[._]\d+)/)
+  if (/iPhone|iPad|iPod/.test(ua) && ios) return `iOS ${ios[1].replace(/_/g, '.')}`
+  if (/iPhone|iPad|iPod/.test(ua)) return 'iOS'
+  const android = ua.match(/Android (\d+)/)
+  if (android) return `Android ${android[1]}`
+  if (/Linux/.test(ua)) return 'Linux'
+  return 'Unknown'
+}
+
+export function getDeviceName(): string {
+  try {
+    const custom = localStorage.getItem('reflie_device_name')
+    if (custom) return custom
+  } catch {}
+  return `${detectBrowser()} on ${detectOS()}`
+}
+
+export function setDeviceName(name: string): void {
+  try { localStorage.setItem('reflie_device_name', name) } catch {}
+}
+
 export function deriveLocalId(): string {
   // Tab-specific storage: survives page reload, not shared across tabs
   try {
