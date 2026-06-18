@@ -1,24 +1,43 @@
 type SignalCallback = (from: string, data: unknown) => void
 type RawMessageCallback = (raw: string) => void
 
+export function deriveLocalId(): string {
+  try {
+    const stored = localStorage.getItem('reflie_local_id')
+    if (stored && stored.length === 8) return stored
+  } catch {}
+  const raw = (navigator?.userAgent || '') + Math.random()
+  let hash = 0
+  for (let i = 0; i < raw.length; i++) {
+    hash = ((hash << 5) - hash) + raw.charCodeAt(i)
+    hash |= 0
+  }
+  const id = Math.abs(hash).toString(36).toUpperCase().slice(0, 8).padEnd(8, '0')
+  try { localStorage.setItem('reflie_local_id', id) } catch {}
+  return id
+}
+
 export class SignalingClient {
   private ws: WebSocket | null = null
   private _peerId = ''
   private callbacks: SignalCallback[] = []
   private rawCallbacks: RawMessageCallback[] = []
   private disconnectCallbacks: Array<() => void> = []
+  private localId = ''
 
   get peerId() {
     return this._peerId
   }
 
   connect(timeoutMs = 8000, url?: string): Promise<string> {
+    this.localId = deriveLocalId()
     return new Promise((resolve, reject) => {
       try {
-        const wsUrl = url ?? (() => {
+        const baseUrl = url ?? (() => {
           const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
           return `${proto}//${location.host}/ws`
         })()
+        const wsUrl = baseUrl + '?peerId=' + encodeURIComponent(this.localId)
         this.ws = new WebSocket(wsUrl)
 
         const timer = setTimeout(() => {
@@ -81,12 +100,16 @@ export class SignalingClient {
     this.disconnectCallbacks.push(cb)
   }
 
-  /** Reconnect with same settings. Returns new peerId. */
+  /** Reconnect with same settings. Returns new peerId (same localId). */
   async reconnect(timeoutMs = 8000): Promise<string> {
     this.ws?.close()
     this.ws = null
     this._peerId = ''
     return this.connect(timeoutMs)
+  }
+
+  get localPeerId() {
+    return this.localId || deriveLocalId()
   }
 
   disconnect() {

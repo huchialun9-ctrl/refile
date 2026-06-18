@@ -42,8 +42,16 @@ function broadcastPeerList() {
   })
 }
 
-wss.on('connection', (ws) => {
-  const peerId = genId()
+wss.on('connection', (ws, req) => {
+  // Try to use client-provided peerId from query string
+  let peerId
+  const url = new URL(req.url || '', 'http://localhost')
+  const requestedId = url.searchParams.get('peerId')
+  if (requestedId && /^[A-F0-9]{8}$/i.test(requestedId) && !peers.has(requestedId.toUpperCase())) {
+    peerId = requestedId.toUpperCase()
+  } else {
+    peerId = genId()
+  }
   const entry = { ws, name: '' }
   peers.set(peerId, entry)
   ws.isAlive = true

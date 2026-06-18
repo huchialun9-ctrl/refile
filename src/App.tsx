@@ -122,6 +122,7 @@ function App() {
   const [qrLabel, setQrLabel] = useState('')
   const [showPrivacy, setShowPrivacy] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
+  const [incomingOffer, setIncomingOffer] = useState<{ from: string; sdp: RTCSessionDescriptionInit; name: string } | null>(null)
   const [myPeerId] = useState(() => deriveLocalId())
   const handleShowQRRef = useRef<() => void>(() => {})
   const [inputPeerId, setInputPeerId] = useState('')
@@ -254,11 +255,11 @@ function App() {
       // Only handle offer-type signals here; everything else goes to WebRTCPeer instances
       if (data.type === 'offer' && data.sdp) {
         if (webrtcConnectedRef.current || webrtcConnectingRef.current) return
-        handleIncomingRef.current?.(sig, {
+        setIncomingOffer({
           from,
           sdp: data.sdp as RTCSessionDescriptionInit,
-          name: (data.name as string) || '',
-        }).catch(e => console.error('handleIncoming error:', e))
+          name: (data.name as string) || from,
+        })
       }
     })
 

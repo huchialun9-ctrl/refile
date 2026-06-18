@@ -229,6 +229,10 @@
   "sendText.placeholder": "輸入要傳送的網址、密碼、或任何文字…",
   "sendText.send": "傳送",
 
+  "incomingConnect.title": "對方想與你連線",
+  "incomingConnect.from": "{{name}} 想與你建立 P2P 連線",
+  "incomingConnect.accept": "接受連線",
+  "incomingConnect.reject": "拒絕連線",
   "connectionError": "連線失敗: {{error}}",
   "connectionTimeout": "連線逾時 — 對方沒有回應",
   "connectionTimeoutLong": "連線逾時 — 請確認對方也在線上，且輸入正確的 ID。若兩邊都在防火牆後，可能需改用網頁版或調整網路設定",

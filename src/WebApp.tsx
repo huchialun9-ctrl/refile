@@ -89,6 +89,8 @@ export default function WebApp() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewType, setPreviewType] = useState<'text' | 'image' | 'pdf' | null>(null)
   const [previewName, setPreviewName] = useState('')
+  const [incomingOffer, setIncomingOffer] = useState<{ from: string; sdp: RTCSessionDescriptionInit } | null>(null)
+  const [incomingPeerName, setIncomingPeerName] = useState('')
   const [roomOpen, setRoomOpen] = useState(false)
   const [dontShow, setDontShow] = useState(
     () => localStorage.getItem('reflie_guide_done') === '1'
@@ -355,15 +357,17 @@ export default function WebApp() {
     })
   }, [setupPeer])
 
-  const handleIncoming = useCallback((from: string, offer: RTCSessionDescriptionInit) => {
+  const acceptIncoming = useCallback(() => {
+    if (!incomingOffer || !sigRef.current) return
+    const { from, sdp } = incomingOffer
     if (connectedRef.current || connectingRef.current) return
-    if (!sigRef.current) return
     connectingRef.current = true
     setConnecting(true)
+    setIncomingOffer(null)
     peerRef.current?.close()
 
     const client = sigRef.current
-    const peer = new WebRTCPeer(client, from, false, offer)
+    const peer = new WebRTCPeer(client, from, false, sdp)
     peerRef.current = peer
     setupPeer(peer)
 
@@ -378,7 +382,12 @@ export default function WebApp() {
         setTimeout(() => setSigError(''), 6000)
       }
     }, 30000)
-  }, [setupPeer])
+  }, [incomingOffer, setupPeer])
+
+  const rejectIncoming = useCallback(() => {
+    setIncomingOffer(null)
+    setIncomingPeerName('')
+  }, [])
 
   useEffect(() => {
     const client = new SignalingClient()
@@ -395,7 +404,7 @@ export default function WebApp() {
     client.connect().then(id => {
       // Check if this effect was already cleaned up (StrictMode double-mount)
       if (!sigRef.current) return
-      setPeerId(id)
+      setPeerId(client.localPeerId)
       setSigOk(true)
       setWsState('ok')
 
@@ -422,11 +431,14 @@ export default function WebApp() {
         } catch {}
       })
 
-      // Register incoming offer handler (runs for the lifetime of the component)
+      // Register incoming offer handler — show accept modal instead of auto-connecting
       client.addSignalHandler((from, rawData) => {
         const msg = rawData as Record<string, unknown>
         if (msg.type === 'offer') {
-          handleIncoming(from, msg.sdp as RTCSessionDescriptionInit)
+          if (connectedRef.current || connectingRef.current) return
+          const name = (msg.name as string) || from
+          setIncomingPeerName(name)
+          setIncomingOffer({ from, sdp: msg.sdp as RTCSessionDescriptionInit })
         }
       })
 
@@ -1440,6 +1452,31 @@ export default function WebApp() {
           </span>
         </div>
       </footer>
+
+      {/* Incoming Connection Modal */}
+      {incomingOffer && (
+        <div className="modal-overlay" onClick={rejectIncoming}>
+          <div className="modal-dialog modal-narrow" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+            </div>
+            <h3>{t('incomingConnect.title')}</h3>
+            <p className="modal-peer">{t('incomingConnect.from', { name: incomingPeerName || incomingOffer.from })}</p>
+            <div className="modal-actions">
+              <button className="btn btn-accept modal-btn" onClick={acceptIncoming}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                {t('incomingConnect.accept')}
+              </button>
+              <button className="btn btn-reject modal-btn" onClick={rejectIncoming}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                {t('incomingConnect.reject')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Text Share Modal */}
       {showTextShare && (

@@ -229,6 +229,10 @@
   "sendText.placeholder": "Enter URLs, passwords, or any text…",
   "sendText.send": "Send",
 
+  "incomingConnect.title": "Incoming Connection",
+  "incomingConnect.from": "{{name}} wants to establish a P2P connection with you",
+  "incomingConnect.accept": "Accept Connection",
+  "incomingConnect.reject": "Reject Connection",
   "connectionError": "Connection failed: {{error}}",
   "connectionTimeout": "Connection timed out — no response from peer",
   "connectionTimeoutLong": "Connection timed out — make sure the other party is online and the ID is correct. If both sides are behind a firewall, try the web version or adjust network settings.",
