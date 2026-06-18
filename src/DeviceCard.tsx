@@ -13,8 +13,6 @@ export default function DeviceCard({ device, selected, onClick }: Props) {
 
   return (
     <div className={`dcard ${selected ? 'dcard-sel' : ''}`} onClick={onClick}>
-      <svg className="dcard-filter" aria-hidden="true" />
-
       <div className="dcard-bg" />
       <div className="dcard-holo" />
 

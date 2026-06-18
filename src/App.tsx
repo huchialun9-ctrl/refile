@@ -312,7 +312,21 @@ function App() {
 
     safeListen<TransferSession>('transfer-request', payload => {
       setTransfers(prev => ({ ...prev, [payload.id]: payload }))
-      setPendingSession(payload)
+      const privacy = loadPrivacy()
+      if (privacy.acceptAll) {
+        invoke('accept_transfer', { sessionId: payload.id }).catch(e => console.error('Auto-accept failed:', e))
+      } else if (privacy.autoAcceptTrusted) {
+        try {
+          const trusted: string[] = JSON.parse(localStorage.getItem('reflie_trusted') || '[]')
+          if (trusted.includes(payload.peer_id)) {
+            invoke('accept_transfer', { sessionId: payload.id }).catch(e => console.error('Trusted auto-accept failed:', e))
+            return
+          }
+        } catch {}
+        setPendingSession(payload)
+      } else {
+        setPendingSession(payload)
+      }
     })
 
     safeListen<{id: string; bytes_sent: number; speed: number}>('transfer-progress', payload => {
@@ -328,6 +342,15 @@ function App() {
       setTransfers(prev => {
         const s = prev[payload]
         if (!s) return prev
+        if (s.direction === 'Receive') {
+          try {
+            const trusted: string[] = JSON.parse(localStorage.getItem('reflie_trusted') || '[]')
+            if (!trusted.includes(s.peer_id)) {
+              trusted.push(s.peer_id)
+              localStorage.setItem('reflie_trusted', JSON.stringify(trusted))
+            }
+          } catch {}
+        }
         const settings = loadPrivacy()
         if (settings.showNotifications) {
           try {
@@ -388,7 +411,7 @@ function App() {
     for (const fp of paths) {
       try {
         await invoke('send_file', { peerId: selectedPeer, filePath: fp })
-      } catch (e) { console.error(e) }
+      } catch (e) { console.error('File drop send error:', e) }
     }
   }, [selectedPeer])
 
@@ -419,7 +442,7 @@ function App() {
       await invoke('write_text_file', { path: tempPath, content: textToSend })
       await invoke('send_file', { peerId: selectedPeer, filePath: tempPath })
       setTextToSend('')
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error('Send text error:', e) }
   }, [selectedPeer, textToSend])
 
   const handleShowQR = useCallback(async () => {
@@ -638,7 +661,7 @@ function App() {
 
           <time className="tl-time">{formatTime(t.created_at)}</time>
           {t.savedPath && (
-            <button className="btn btn-open-folder" onClick={() => invoke('open_folder', { path: t.savedPath }).catch(console.error)}>
+            <button className="btn btn-open-folder" onClick={() => invoke('open_folder', { path: t.savedPath }).catch(e => console.error('Open folder error:', e))}>
               開啟資料夾
             </button>
           )}
@@ -659,26 +682,26 @@ function App() {
           </span>
         </div>
         <div className="topbar-right">
-          <button className="topbar-btn" onClick={() => setShowTextShare(true)} title="傳送文字">
+          <button className="topbar-btn" onClick={() => setShowTextShare(true)} title="傳送文字" aria-label="傳送文字">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </button>
-          <button className="topbar-btn" title="下載桌面版" onClick={() => {
+          <button className="topbar-btn" title="下載桌面版" aria-label="下載桌面版" onClick={() => {
             const url = window.location.origin + window.location.pathname + '#download'
             window.open(url, '_blank', 'noopener,noreferrer')
           }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><polyline points="8 12 12 16 16 12"/></svg>
           </button>
-          <button className="topbar-btn" title="連線說明" onClick={() => setShowGuide(true)}>
+          <button className="topbar-btn" title="連線說明" aria-label="連線說明" onClick={() => setShowGuide(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </button>
-          <button className="topbar-btn" title="隱私權設定" onClick={() => setShowPrivacy(true)}>
+          <button className="topbar-btn" title="隱私權設定" aria-label="隱私權設定" onClick={() => setShowPrivacy(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </button>
-          <button className="topbar-btn" title="QR Code 連線" onClick={handleShowQR}>
+          <button className="topbar-btn" title="QR Code 連線" aria-label="QR Code 連線" onClick={handleShowQR}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="4" height="4"/></svg>
           </button>
-          <label className="main-toggle" title={darkMode ? '淺色模式' : '深色模式'}>
-            <input type="checkbox" className="main-checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} />
+          <label className="main-toggle" title={darkMode ? '淺色模式' : '深色模式'} aria-label={darkMode ? '淺色模式' : '深色模式'}>
+            <input type="checkbox" className="main-checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} aria-label={darkMode ? '切換淺色模式' : '切換深色模式'} />
             <div className="main-track"></div>
             <div className="main-knob"></div>
           </label>
@@ -761,16 +784,16 @@ function App() {
             {sigError && <span className="sid-badge sid-badge-err">{sigError}</span>}
           </div>
           <div className="sid-actions">
-            <button className="sid-btn" onClick={handleCopyId} title="複製 ID">
+            <button className="sid-btn" onClick={handleCopyId} title="複製 ID" aria-label="複製裝置 ID">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               {copiedId ? '已複製' : '複製'}
             </button>
-            <button className="sid-btn" onClick={handleShowQR} title="QR Code">
+            <button className="sid-btn" onClick={handleShowQR} title="QR Code" aria-label="顯示 QR Code">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="4" height="4"/></svg>
               QR
             </button>
             {sigOk && (
-              <button className="sid-btn sid-share-btn" onClick={handleShareLink} title="複製分享連結">
+              <button className="sid-btn sid-share-btn" onClick={handleShareLink} title="複製分享連結" aria-label="複製分享連結">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                 {shareLabel || '分享'}
               </button>
@@ -811,7 +834,7 @@ function App() {
 
           <div className="sid-label">連到對方</div>
           <div className="sid-connect-form">
-            <input className="sid-input"
+            <input className="sid-input" aria-label="貼上對方 ID"
               placeholder="貼上對方 ID"
               value={inputPeerId}
               onChange={e => setInputPeerId(e.target.value.toUpperCase().replace(/[^A-F0-9-]/g, ''))}
@@ -819,7 +842,7 @@ function App() {
               maxLength={9}
               disabled={peerConnecting}
             />
-            <button className="sid-go-btn" onClick={handleIdConnect}
+            <button className="sid-go-btn" aria-label="連線至對方" onClick={handleIdConnect}
               disabled={peerConnecting || inputPeerId.replace('-', '').length < 6}>
               {peerConnecting ? '…' : '連線'}
             </button>

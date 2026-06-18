@@ -64,6 +64,9 @@ export default function WebApp() {
   const [previewType, setPreviewType] = useState<'text' | 'image' | 'pdf' | null>(null)
   const [previewName, setPreviewName] = useState('')
   const [roomOpen, setRoomOpen] = useState(false)
+  const [dontShow, setDontShow] = useState(
+    () => localStorage.getItem('reflie_guide_done') === '1'
+  )
 
   const abortCtrlRef = useRef<Record<string, AbortController>>({})
   const abortRef = useRef<Record<string, boolean>>({})
@@ -1107,7 +1110,7 @@ export default function WebApp() {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                   </button>
                 </div>
-                <label className="file-upload-label"
+                <label className={"file-upload-label" + (dragging ? ' wc-upload-dragging' : '')}
                   onDragOver={e => { e.preventDefault(); setDragging(true) }}
                   onDragLeave={() => setDragging(false)}
                   onDrop={handleDrop}
@@ -1304,7 +1307,7 @@ export default function WebApp() {
             </div>
             <div className="guide-actions">
               <label className="guide-dont-show">
-                <input type="checkbox" onChange={() => {}} aria-label="下次不再顯示使用說明" />
+                <input type="checkbox" checked={dontShow} onChange={e => { localStorage.setItem('reflie_guide_done', e.target.checked ? '1' : ''); setDontShow(e.target.checked) }} aria-label="下次不再顯示使用說明" />
                 下次不再顯示
               </label>
               <button className="btn btn-accept modal-btn" onClick={() => setShowGuide(false)} aria-label="關閉使用說明">

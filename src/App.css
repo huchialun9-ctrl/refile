@@ -5,6 +5,8 @@
   --tl-bullet-size: 28px;
   --tl-line-width: 2px;
   --tl-offset: calc(var(--tl-bullet-size) / 2 + var(--tl-line-width) + 6px);
+  --warning: #f5a623;
+  --warning-bg: rgba(255, 193, 7, 0.15);
 }
 
 /* ── Sidebar ── */
@@ -567,6 +569,11 @@
   border-color: var(--green);
 }
 
+.tl-bullet-done {
+  background: var(--green);
+  border-color: var(--green);
+}
+
 .tl-icon {
   font-size: 14px;
   line-height: 1;
@@ -805,18 +812,11 @@
   outline-color: var(--accent);
 }
 
-.dcard-filter {
-  position: absolute;
-  width: 0;
-  height: 0;
-}
-
 .dcard-bg {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   background-color: #fff;
-  filter: url(#bump);
   mask:
     radial-gradient(circle at 50% 0, #0000 calc(var(--perf) - 4px), #000 calc(var(--perf) - 3px)),
     radial-gradient(circle at 50% 100%, #0000 calc(var(--perf) - 4px), #000 calc(var(--perf) - 3px)),
@@ -896,6 +896,23 @@
   width: fit-content;
   margin-left: auto;
   margin-right: auto;
+}
+
+.dcard-bt-badge {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 4px;
+  color: #2a7de1;
+}
+
+.dcard-transport-label {
+  font-size: 0.65rem;
+  background: #2a7de1;
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
 }
 
 .dcard-meta {
@@ -1160,6 +1177,10 @@
 .ncard-upload-label:hover {
   border-color: var(--accent);
   background: var(--accent-bg);
+}
+.wc-upload-dragging {
+  border-color: var(--accent);
+  background: var(--accent-bg, rgba(109,93,244,0.08));
 }
 .ncard-upload-design {
   display: flex;

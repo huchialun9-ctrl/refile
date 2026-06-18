@@ -19,7 +19,7 @@ export default function FolderCard({ transfers, selectedPeer, onDrop }: Props) {
       if (selected) {
         const paths = Array.isArray(selected) ? selected : [selected]
         for (const fp of paths) {
-          await invoke('send_file', { peerId: selectedPeer, filePath: fp }).catch(console.error)
+          await invoke('send_file', { peerId: selectedPeer, filePath: fp }).catch(e => console.error('Send file error:', e))
         }
       }
     } catch (e) {
