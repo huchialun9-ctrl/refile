@@ -6,10 +6,9 @@ import type { TransferSession } from './types'
 interface Props {
   transfers: TransferSession[]
   selectedPeer: boolean
-  onDrop: (paths: string[]) => void
 }
 
-export default function FolderCard({ transfers, selectedPeer, onDrop }: Props) {
+export default function FolderCard({ transfers, selectedPeer }: Props) {
   const pending = transfers.filter(t => t.status === 'Pending' || t.status === 'Transferring')
 
   const handlePickFile = useCallback(async () => {

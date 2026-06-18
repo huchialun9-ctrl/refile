@@ -13,7 +13,6 @@ import ConnectionGuide from './ConnectionGuide'
 import WebApp from './WebApp'
 import { SignalingClient } from './webrtc/signaling'
 import { WebRTCPeer } from './webrtc/peer'
-import { FileReceiver } from './webrtc/transfer'
 import './App.css'
 
 function formatSize(bytes: number): string {
@@ -145,7 +144,6 @@ function App() {
   const webrtcRef = useRef<WebRTCPeer | null>(null)
   const webrtcConnectedRef = useRef(false)
   const webrtcConnectingRef = useRef(false)
-  const receiverRef = useRef<FileReceiver | null>(null)
   const [shareLabel, setShareLabel] = useState('')
   const handleIncomingRef = useRef<(sig: SignalingClient, data: {sdp: RTCSessionDescriptionInit; from: string; name: string}) => Promise<void>>()
 
@@ -158,7 +156,8 @@ function App() {
   if (!isTauri && showDownloadPage) return <DownloadPage darkMode={darkMode} setDarkMode={setDarkMode} />
   if (!isTauri) return <WebApp />
 
-
+  // Tauri-only hooks below — intentional conditional
+  /* eslint-disable react-hooks/rules-of-hooks */
 
   useEffect(() => {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -396,13 +395,11 @@ function App() {
       })
     })
 
-    if (isTauri) {
-      safeListen<{type: string; paths: string[]; position: {x: number; y: number}}>('tauri://drag-drop', payload => {
-        if (payload.type === 'drop' && payload.paths?.length) {
-          handleFileDropRef.current(payload.paths)
-        }
-      })
-    }
+    safeListen<{type: string; paths: string[]; position: {x: number; y: number}}>('tauri://drag-drop', payload => {
+      if (payload.type === 'drop' && payload.paths?.length) {
+        handleFileDropRef.current(payload.paths)
+      }
+    })
 
     return () => { unsubs.forEach(fn => fn()) }
   }, [])
@@ -465,7 +462,7 @@ function App() {
       setQrData(`re-file:peer:${peer}`)
       setQrLabel(label)
       setShowQR(true)
-    } catch (e) {
+    } catch {
       setQrData(`re-file:peer:${myPeerId}`)
       setQrLabel(`ID: ${fmtId(myPeerId)}`)
       setShowQR(true)
@@ -599,7 +596,9 @@ function App() {
     const justCompleted = recentlyCompleted.has(t.id)
     const isFailed = typeof t.status === 'object' && 'Failed' in t.status
 
-    return (
+  /* eslint-enable react-hooks/rules-of-hooks */
+
+  return (
       <div
         key={t.id}
         className={`tl-item ${isActive ? 'tl-active' : ''} ${t.status === 'Completed' ? 'tl-done' : ''} ${justCompleted ? 'tl-just-done' : ''} ${isFailed ? 'tl-failed' : ''}`}

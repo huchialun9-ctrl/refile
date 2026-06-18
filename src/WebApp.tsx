@@ -83,7 +83,6 @@ export default function WebApp() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewType, setPreviewType] = useState<'text' | 'image' | 'pdf' | null>(null)
   const [previewName, setPreviewName] = useState('')
-  const [starCount, setStarCount] = useState(0)
   const [commits, setCommits] = useState<{sha: string; message: string; url: string}[]>([])
   const [cardTab, setCardTab] = useState<'commits' | 'issues'>('commits')
   const [roomOpen, setRoomOpen] = useState(false)
@@ -127,7 +126,6 @@ export default function WebApp() {
   const [landing, setLanding] = useState(true)
   const [btDevices, setBtDevices] = useState<BtDevice[]>([])
   const [btScanning, setBtScanning] = useState(false)
-  const [btConnectingId, setBtConnectingId] = useState('')
   const [bleStatus, setBleStatus] = useState<string | null>(null)
   const [btAutoScan, setBtAutoScan] = useState(false)
   const bleScanRef = useRef<BluetoothLEScan | null>(null)
@@ -230,7 +228,6 @@ export default function WebApp() {
   useEffect(() => {
     fetch('https://api.github.com/repos/huchialun9-ctrl/refile')
       .then(r => r.json() as Promise<{stargazers_count?: number}>)
-      .then(d => { if (d.stargazers_count) setStarCount(d.stargazers_count) })
       .catch(() => {})
     fetch('https://api.github.com/repos/huchialun9-ctrl/refile/commits?per_page=5')
       .then(r => r.json() as Promise<{sha: string; commit: {message: string}; html_url: string}[]>)
@@ -245,7 +242,12 @@ export default function WebApp() {
   useEffect(() => {
     try {
       if (!Array.isArray(transfers)) return
-      const clean = transfers.map(({ blobUrl, textContent, ...rest }) => rest)
+      const clean = transfers.map(t => {
+        const rest = { ...t }
+        delete rest.blobUrl
+        delete rest.textContent
+        return rest
+      })
       localStorage.setItem('rf_transfers', JSON.stringify(clean))
     } catch {}
   }, [transfers])
@@ -280,11 +282,9 @@ export default function WebApp() {
       setTimeout(() => setSigError(''), 4000)
     }
 
-    let currentRxId = ''
     const rxMetaMap = new Map<string, { name: string }>()
     peer.onMeta = (meta: FileMeta) => {
       const id = crypto.randomUUID().slice(0, 8)
-      currentRxId = id
       rxMetaMap.set(id, { name: meta.name })
       speedMap.current[id] = { bytes: 0, ts: Date.now() }
       receiver.setMeta(meta)
