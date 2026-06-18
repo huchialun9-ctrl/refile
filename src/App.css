@@ -84,6 +84,43 @@
   color: var(--accent);
 }
 
+.sid-device-name {
+  margin-bottom: 8px;
+}
+.sid-device-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sid-btn-icon {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.sid-btn-icon:hover {
+  opacity: 1;
+}
+.sid-device-input {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--bg-card);
+  color: var(--text);
+  outline: none;
+  width: 100%;
+  max-width: 180px;
+  font-family: inherit;
+}
+
 .sid-actions {
   display: flex;
   gap: 4px;

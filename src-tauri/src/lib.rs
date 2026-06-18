@@ -20,7 +20,7 @@ pub struct AppState {
     pub discovery: Mutex<Option<Arc<Mutex<DeviceDiscovery>>>>,
     pub engine: Mutex<Option<TransferEngine>>,
     pub device_id: String,
-    pub device_name: String,
+    pub device_name: Arc<Mutex<String>>,
     pub transfers: Arc<Mutex<HashMap<String, TransferSession>>>,
     /// BLE-discovered devices (separate map, merged on emit)
     pub bt_devices: Arc<Mutex<HashMap<String, DeviceInfo>>>,
@@ -29,11 +29,17 @@ pub struct AppState {
 }
 
 #[tauri::command]
+async fn set_device_name(state: State<'_, AppState>, name: String) -> Result<(), String> {
+    state.device_name.lock().await.clone_from(&name);
+    Ok(())
+}
+
+#[tauri::command]
 async fn start_discovery(
     state: State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let name = whoami::fallible::hostname().unwrap_or_else(|_| "unknown".to_string());
+    let name = state.device_name.lock().await.clone();
     let device_id = uuid::Uuid::new_v4().to_string();
 
     let discovery = DeviceDiscovery::new().map_err(|e| e.to_string())?;
@@ -118,7 +124,7 @@ async fn start_bluetooth(
         if let Some(ref eng) = *engine {
             let ctrl_port = *eng.control_port().lock().await;
             drop(engine);
-            let name = whoami::fallible::hostname().unwrap_or_else(|_| "unknown".to_string());
+            let name = state.device_name.lock().await.clone();
             if let Err(e) = bluetooth::start_advertising(&host.to_string(), ctrl_port, &name) {
                 log::warn!("BLE advertising unavailable: {}", e);
                 let _ = app_handle.emit(
@@ -299,7 +305,7 @@ pub fn run() {
             discovery: Mutex::new(None),
             engine: Mutex::new(None),
             device_id: get_device_id(),
-            device_name: whoami::fallible::hostname().unwrap_or_else(|_| "unknown".to_string()),
+            device_name: Arc::new(Mutex::new(whoami::fallible::hostname().unwrap_or_else(|_| "unknown".to_string()))),
             transfers: Arc::new(Mutex::new(HashMap::new())),
             bt_devices: Arc::new(Mutex::new(HashMap::new())),
             bt_enabled: Arc::new(Mutex::new(false)),
@@ -359,6 +365,7 @@ pub fn run() {
             start_bluetooth,
             stop_bluetooth,
             get_bluetooth_status,
+            set_device_name,
             open_folder,
         ])
         .run(tauri::generate_context!())

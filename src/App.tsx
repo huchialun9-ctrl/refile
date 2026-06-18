@@ -132,6 +132,9 @@ function App() {
   const [showGuide, setShowGuide] = useState(false)
   const [incomingOffer, setIncomingOffer] = useState<{ from: string; sdp: RTCSessionDescriptionInit; name: string } | null>(null)
   const [myPeerId] = useState(() => deriveLocalId())
+  const [deviceName, setDeviceNameState] = useState(() => getDeviceName())
+  const [editingDeviceName, setEditingDeviceName] = useState(false)
+  const [deviceNameInput, setDeviceNameInput] = useState('')
   const handleShowQRRef = useRef<() => void>(() => {})
   const [inputPeerId, setInputPeerId] = useState('')
   const [peerConnecting, setPeerConnecting] = useState(false)
@@ -853,6 +856,25 @@ function App() {
             {sigConnecting && <span className="sid-badge sid-badge-pending">{i18n.t('app.connecting')}</span>}
             {sigOk && <span className="sid-badge sid-badge-ok">{i18n.t('app.online')}</span>}
             {sigError && <span className="sid-badge sid-badge-err">{sigError}</span>}
+          </div>
+          <div className="sid-device-name">
+            {editingDeviceName ? (
+              <input
+                className="sid-device-input"
+                value={deviceNameInput}
+                onChange={e => setDeviceNameInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { const n = deviceNameInput; setDeviceName(n); setDeviceNameState(n); setEditingDeviceName(false); sigRef.current?.send({ type: 'peer-info', name: n }); if (isTauri) invoke('set_device_name', { name: n }).catch(() => {}) } }}
+                autoFocus
+                maxLength={24}
+              />
+            ) : (
+              <span className="sid-device-label" title={i18n.t('myid.editName')}>
+                {deviceName}
+                <button className="sid-btn-icon" onClick={() => { setDeviceNameInput(deviceName); setEditingDeviceName(true) }} aria-label={i18n.t('myid.editName')}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+              </span>
+            )}
           </div>
           <div className="sid-actions">
             <button className="sid-btn" onClick={handleCopyId} title={i18n.t('app.copyId')} aria-label={i18n.t('app.copyDeviceId')}>
