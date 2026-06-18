@@ -2,23 +2,30 @@ type SignalCallback = (from: string, data: unknown) => void
 type RawMessageCallback = (raw: string) => void
 
 export function deriveLocalId(): string {
+  // Tab-specific storage: survives page reload, not shared across tabs
+  try {
+    const tab = sessionStorage.getItem('reflie_peer_id')
+    if (tab && tab.length === 8) return tab
+  } catch {}
+  // Device-wide storage: shared across tabs (last write wins)
   try {
     const stored = localStorage.getItem('reflie_peer_id')
-    if (stored && stored.length === 8) return stored
+    if (stored && stored.length === 8) {
+      try { sessionStorage.setItem('reflie_peer_id', stored) } catch {}
+      return stored
+    }
     // Migrate from old key
     const old = localStorage.getItem('reflie_local_id')
-    if (old && old.length === 8) { localStorage.setItem('reflie_peer_id', old); return old }
+    if (old && old.length === 8) {
+      try { localStorage.setItem('reflie_peer_id', old); sessionStorage.setItem('reflie_peer_id', old) } catch {}
+      return old
+    }
   } catch {}
+  // Generate a truly unique ID per tab from crypto.randomUUID()
   let unique: string
   try { unique = crypto.randomUUID() } catch { unique = Math.random().toString(36).substring(2) + Date.now().toString(36) }
-  const raw = (navigator?.userAgent || '') + unique
-  let hash = 0
-  for (let i = 0; i < raw.length; i++) {
-    hash = ((hash << 5) - hash) + raw.charCodeAt(i)
-    hash |= 0
-  }
-  const id = Math.abs(hash).toString(36).toUpperCase().slice(0, 8).padEnd(8, '0')
-  try { localStorage.setItem('reflie_local_id', id) } catch {}
+  const id = unique.replace(/-/g, '').toUpperCase().slice(0, 8).padEnd(8, '0')
+  try { localStorage.setItem('reflie_peer_id', id); sessionStorage.setItem('reflie_peer_id', id) } catch {}
   return id
 }
 
@@ -57,6 +64,7 @@ export class SignalingClient {
             if (msg.type === 'welcome') {
               clearTimeout(timer)
               this._peerId = msg.peerId as string
+              try { localStorage.setItem('reflie_peer_id', this._peerId) } catch {}
               resolve(this._peerId)
             } else if (msg.type === 'signal') {
               for (const cb of this.callbacks) cb(msg.from as string, msg.data)

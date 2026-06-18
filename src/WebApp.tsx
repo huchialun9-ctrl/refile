@@ -404,7 +404,7 @@ export default function WebApp() {
     client.connect().then(id => {
       // Check if this effect was already cleaned up (StrictMode double-mount)
       if (!sigRef.current) return
-      setPeerId(client.localPeerId)
+      setPeerId(id)
       setSigOk(true)
       setWsState('ok')
 
