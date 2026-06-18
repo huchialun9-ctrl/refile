@@ -1,0 +1,42 @@
+2026-06-17T01:51:37.598973Z	Cloning repository...
+2026-06-17T01:51:38.498917Z	From https://github.com/huchialun9-ctrl/refile
+2026-06-17T01:51:38.499321Z	 * branch            36edf61afbcf01c8553fdbf1b2f52f723e9eb19e -> FETCH_HEAD
+2026-06-17T01:51:38.49941Z	
+2026-06-17T01:51:38.524294Z	HEAD is now at 36edf61 Add web application interface for peer-to-peer file transfers
+2026-06-17T01:51:38.52455Z	
+2026-06-17T01:51:39.01048Z	
+2026-06-17T01:51:39.010849Z	Using v2 root directory strategy
+2026-06-17T01:51:39.024036Z	Success: Finished cloning repository files
+2026-06-17T01:51:40.886542Z	Checking for configuration in a Wrangler configuration file (BETA)
+2026-06-17T01:51:40.886918Z	
+2026-06-17T01:51:40.887631Z	Found wrangler.toml file. Reading build configuration...
+2026-06-17T01:51:40.894135Z	pages_build_output_dir: dist
+2026-06-17T01:51:40.894338Z	Build environment variables: (none found)
+2026-06-17T01:51:41.092598Z	Successfully read the Wrangler configuration file.
+2026-06-17T01:51:41.458555Z	Detected the following tools from environment: nodejs@20.20.0, npm@10.9.2
+2026-06-17T01:51:41.458925Z	Installing nodejs 20.20.0
+2026-06-17T01:51:42.389321Z	Trying to update node-build... ok
+2026-06-17T01:51:42.449737Z	To follow progress, use 'tail -f /tmp/node-build.20260617015142.800.log' or pass --verbose
+2026-06-17T01:51:42.494752Z	Downloading node-v20.20.0-linux-x64.tar.gz...
+2026-06-17T01:51:42.694303Z	-> https://nodejs.org/dist/v20.20.0/node-v20.20.0-linux-x64.tar.gz
+2026-06-17T01:51:45.046246Z	
+2026-06-17T01:51:45.046543Z	WARNING: node-v20.20.0-linux-x64 is past its end of life and is now unsupported.
+2026-06-17T01:51:45.046623Z	It no longer receives bug fixes or security updates.
+2026-06-17T01:51:45.046676Z	
+2026-06-17T01:51:45.046742Z	Installing node-v20.20.0-linux-x64...
+2026-06-17T01:51:45.539861Z	Installed node-v20.20.0-linux-x64 to /opt/buildhome/.asdf/installs/nodejs/20.20.0
+2026-06-17T01:51:45.540159Z	
+2026-06-17T01:51:46.173934Z	Installing project dependencies: npm clean-install --progress=false
+2026-06-17T01:52:57.842848Z	npm error Exit handler never called!
+2026-06-17T01:52:57.84327Z	npm error This is an error with npm itself. Please report this error at:
+2026-06-17T01:52:57.843398Z	npm error   <https://github.com/npm/cli/issues>
+2026-06-17T01:52:57.844156Z	npm error A complete log of this run can be found in: /opt/buildhome/.npm/_logs/2026-06-17T01_51_46_427Z-debug-0.log
+2026-06-17T01:52:57.859731Z	Executing user command: npm run build
+2026-06-17T01:52:58.15014Z	
+2026-06-17T01:52:58.150487Z	> reflie@0.0.0 build
+2026-06-17T01:52:58.150671Z	> tsc -b && vite build
+2026-06-17T01:52:58.150761Z	
+2026-06-17T01:52:58.156826Z	sh: 1: tsc: not found
+2026-06-17T01:52:58.165342Z	Failed: Error while executing user command. Exited with error code: 127
+2026-06-17T01:52:58.172175Z	Failed: build command exited with code: 1
+2026-06-17T01:52:58.868124Z	Failed: error occurred while running build command
