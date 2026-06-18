@@ -57,21 +57,18 @@ export default function FolderCard({ transfers, selectedPeer, onDrop }: Props) {
             </div>
           )}
 
-          <div className={`nfolder ${dragging ? 'nfolder-dragging' : ''}`}>
-            <div className="nback nback-1" />
-            <div className="nback nback-2" />
-            <div className="nfront">
-              <div className="ntip" />
-              <div className="ncover" />
-            </div>
+          <div className="ncard-upload-form">
+            <label className="ncard-upload-label" onClick={handlePickFile}>
+              <div className="ncard-upload-design">
+                <svg viewBox="0 0 640 512" fill="currentColor">
+                  <path d="M144 480C64.5 480 0 415.5 0 336c0-62.8 40.2-116.2 96.2-135.9c-.1-2.7-.2-5.4-.2-8.1c0-88.4 71.6-160 160-160c59.3 0 111 32.2 138.7 80.2C409.9 102 428.3 96 448 96c53 0 96 43 96 96c0 12.2-2.3 23.8-6.4 34.6C596 238.4 640 290.1 640 352c0 70.7-57.3 128-128 128H144zm79-217c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l39-39V392c0 13.3 10.7 24 24 24s24-10.7 24-24V257.9l39 39c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0l-80 80z"/>
+                </svg>
+                <p>拖曳檔案到這裡</p>
+                <span className="ncard-or">—— 或 ——</span>
+                <span className="ncard-browse-btn">選擇檔案</span>
+              </div>
+            </label>
           </div>
-
-          <button className="nupload" onClick={handlePickFile}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            選擇檔案
-          </button>
-
-          <div className="ncard-hint">拖曳檔案到這裡，或點選按鈕選擇檔案</div>
 
           <input
             ref={inputRef}
