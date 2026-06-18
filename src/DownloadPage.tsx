@@ -196,6 +196,10 @@ export default function DownloadPage({ darkMode, setDarkMode }: Props) {
                   </span>
                 </a>
               ))}
+              <div className="download-note download-webview2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                Windows 使用者需要安裝 <a href="https://developer.microsoft.com/en-us/microsoft-edge/webview2" target="_blank" rel="noopener noreferrer">Microsoft Edge WebView2</a> 才能執行桌面版
+              </div>
             </div>
           </div>
         ))}

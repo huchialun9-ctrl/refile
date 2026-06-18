@@ -1723,6 +1723,21 @@
   line-height: 1.6;
   margin: 0;
 }
+.download-webview2 {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  margin-top: 4px;
+}
+.download-webview2 a {
+  color: var(--accent);
+  text-decoration: underline;
+}
 
 .download-assets {
   display: flex;
