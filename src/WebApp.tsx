@@ -52,6 +52,7 @@ export default function WebApp() {
   const [showTextShare, setShowTextShare] = useState(false)
   const [textToSend, setTextToSend] = useState('')
   const [showTextPreview, setShowTextPreview] = useState<string | null>(null)
+  const [showGuide, setShowGuide] = useState(false)
   const [copied, setCopied] = useState(false)
   const [copyLabel, setCopyLabel] = useState('')
   interface BtDevice { id: string; name: string; connected: boolean; peerId?: string; deviceRef?: BluetoothDevice }
@@ -608,6 +609,9 @@ export default function WebApp() {
               <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
             </svg>
           </button>
+          <button className="topbar-btn" title="使用說明" onClick={() => setShowGuide(true)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </button>
           <button className="topbar-btn" title="下載桌面版"
             onClick={() => window.open(location.pathname + '#download', '_blank')}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -731,7 +735,7 @@ export default function WebApp() {
                   </div>
                   <div className="webapp-dash-card">
                     <span className="webapp-dash-label">加密</span>
-                    <span className="webapp-dash-value green">端對端 AES-GCM</span>
+                    <span className="webapp-dash-value green">點對點加密</span>
                   </div>
                   <div className="webapp-dash-card">
                     <span className="webapp-dash-label">傳輸量</span>
@@ -878,6 +882,39 @@ export default function WebApp() {
               </button>
               <button className="btn btn-reject modal-btn" onClick={() => setShowTextPreview(null)}>
                 關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Guide Modal */}
+      {showGuide && (
+        <div className="modal-overlay" onClick={() => setShowGuide(false)}>
+          <div className="modal-dialog guide-dialog" onClick={e => e.stopPropagation()}>
+            <h3>使用說明</h3>
+            <div className="guide-section">
+              <h4>連線方式</h4>
+              <p>把你的 ID 給對方（複製或 QR Code），對方輸入後按連線。</p>
+              <p>也可以直接點在線用戶的名單，一鍵連線。</p>
+            </div>
+            <div className="guide-section">
+              <h4>傳送檔案</h4>
+              <p>連線後把檔案拖進中間的框，或點「選擇檔案」按鈕。</p>
+              <p>也可以直接複製貼上文字，用「傳送文字」功能。</p>
+            </div>
+            <div className="guide-section">
+              <h4>安全性</h4>
+              <p>檔案走 WebRTC 點對點傳輸，不經過伺服器。</p>
+              <p>連線過程透過 WebSocket 交換信號，但檔案內容不會被第三方看到。</p>
+            </div>
+            <div className="guide-actions">
+              <label className="guide-dont-show">
+                <input type="checkbox" onChange={() => {}} />
+                下次不再顯示
+              </label>
+              <button className="btn btn-accept modal-btn" onClick={() => setShowGuide(false)}>
+                知道了
               </button>
             </div>
           </div>

@@ -1939,6 +1939,22 @@
   text-align: left;
 }
 
+.guide-section {
+  margin: 14px 0;
+}
+.guide-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--text);
+}
+.guide-section p {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+  line-height: 1.5;
+}
+
 .guide-steps {
   list-style: decimal;
   padding: 0 0 0 20px;
