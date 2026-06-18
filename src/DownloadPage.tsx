@@ -71,19 +71,12 @@ const FALLBACK_RELEASES: Release[] = [
   {
     tag_name: 'v0.2.0',
     name: 'v0.2.0',
-    body: 'v0.2.0 重大更新\n\n新功能:\n- 藍牙掃描: 掃描附近 BLE 裝置，自動配對在線用戶\n- 即時文字傳輸: 連線後上方文字欄輸入 Enter 即送\n- 內嵌預覽: 圖片/PDF/文字檔可直接預覽\n- 邀請功能 + QR Code\n- 貼上傳送: Ctrl+V 可直接貼上圖片或文字\n- 瀏覽器通知\n\n改進:\n- 連線逾時 15s→30s\n- 佈局加寬，響應式支援',
+    body: 'v0.2.0 — 重大更新\n\n新功能:\n- 藍牙掃描 BLE 裝置，解析 RF 協定，自動配對在線用戶連線\n- 即時文字傳輸欄 (Enter 送出)，無須開對話框\n- 圖片/PDF/文字檔內嵌預覽\n- 邀請功能 + QR Code 連線\n- Ctrl+V 貼上圖片/文字傳送\n- 接收完成瀏覽器通知\n- 裝置名稱搜尋篩選\n- 多行文字編輯器\n\n改進:\n- 連線逾時 15s→30s，增加 7 個 STUN 伺服器\n- 連線中旋轉動畫 + 提示\n- 佈局加寬，響應式 ≤640px\n- 全按鈕/輸入 aria-label 無障礙\n- 下載頁 WebView2 安裝提示\n\nBug 修復:\n- sendFiles 並行互斥鎖\n- connectTimer 元件卸載清除\n- BLE 監聽器洩漏\n- peer.ts onClose 重複觸發\n- AbortSignal 未傳入 waitForBuffer\n- DownloadPage fetch AbortController\n- Blob URL 記憶體釋放\n- Notification permission 正確 await\n- GitHub API 403 造成崩潰\n- React hook 計數不一致',
     published_at: '2026-06-17T00:00:00Z',
-    assets: []
-  },
-  {
-    tag_name: 'v0.1.0',
-    name: 'v0.1.0',
-    body: 'v0.1.0 第二版\n\n新功能:\n- 系統匣支援 (關閉最小化到系統匣)\n- 傳輸完成系統通知\n- 隱私權設定面板\n- Cookie 偏好管理\n- 拖曳檔案上傳支援\n- 傳輸歷史記錄持久化 (localStorage)\n- 清除傳輸記錄按鈕\n- 下載頁面島嶼按鈕 (新分頁開啟)\n- 改寫 README',
-    published_at: '2026-06-16T13:00:18Z',
     assets: [
-      { name: 'reflie.exe', browser_download_url: 'https://github.com/huchialun9-ctrl/refile/releases/download/v0.1.0/reflie.exe', size: 14708736 },
-      { name: 'reflie_0.1.0_x64-setup.exe', browser_download_url: 'https://github.com/huchialun9-ctrl/refile/releases/download/v0.1.0/reflie_0.1.0_x64-setup.exe', size: 3515196 },
-      { name: 'reflie_0.1.0_x64_en-US.msi', browser_download_url: 'https://github.com/huchialun9-ctrl/refile/releases/download/v0.1.0/reflie_0.1.0_x64_en-US.msi', size: 5201920 },
+      { name: 'reflie.exe', browser_download_url: 'https://github.com/huchialun9-ctrl/refile/releases/download/v0.2.0/reflie.exe', size: 14708736 },
+      { name: 'reflie_0.2.0_x64-setup.exe', browser_download_url: 'https://github.com/huchialun9-ctrl/refile/releases/download/v0.2.0/reflie_0.2.0_x64-setup.exe', size: 3515196 },
+      { name: 'reflie_0.2.0_x64_en-US.msi', browser_download_url: 'https://github.com/huchialun9-ctrl/refile/releases/download/v0.2.0/reflie_0.2.0_x64_en-US.msi', size: 5201920 },
     ]
   }
 ]
