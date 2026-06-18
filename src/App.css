@@ -2344,6 +2344,74 @@
   letter-spacing: 0.3px;
 }
 
+/* ── Bluetooth scan ── */
+.bt-scan-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.bt-scan-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.bt-scan-btn:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-bg); }
+.bt-scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.bt-clear-btn {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.bt-clear-btn:hover { color: var(--text); }
+.bt-device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.bt-device-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+.bt-device-item.bt-connected {
+  border-color: var(--green);
+  background: var(--green-bg);
+}
+.bt-device-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.bt-device-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
 /* ── Idle guide ── */
 .webapp-idle {
   width: 100%;

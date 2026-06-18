@@ -99,10 +99,56 @@ export default function WebApp() {
   const [btScanning, setBtScanning] = useState(false)
   const [btConnectingId, setBtConnectingId] = useState('')
   const [bleStatus, setBleStatus] = useState<string | null>(null)
+  const [btAutoScan, setBtAutoScan] = useState(false)
+  const bleScanRef = useRef<any>(null)
   const [qrUrl, setQrUrl] = useState('')
   const [qrError, setQrError] = useState('')
   const [onlinePeers, setOnlinePeers] = useState<Array<{id: string; name: string}>>([])
   const [peerSearch, setPeerSearch] = useState('')
+
+  const stopBtScan = useCallback(async () => {
+    setBtScanning(false)
+    setBtAutoScan(false)
+    try {
+      const scan = bleScanRef.current
+      if (scan && typeof scan.stop === 'function') { scan.stop(); bleScanRef.current = null }
+    } catch {}
+  }, [])
+
+  const startBtScan = useCallback(async () => {
+    if (btScanning) return
+    if (!navigator.bluetooth) { setBleStatus('此瀏覽器不支援 Web Bluetooth API'); setTimeout(() => setBleStatus(null), 4000); return }
+    setBtScanning(true)
+    setBleStatus('正在掃描藍牙裝置…')
+    try {
+      // Try LEScan first (auto-scan without dialog)
+      if ((navigator.bluetooth as any).requestLEScan) {
+        const scan = await (navigator.bluetooth as any).requestLEScan({ acceptAllAdvertisements: true, active: true })
+        bleScanRef.current = scan
+        setBtAutoScan(true)
+        setBleStatus('藍牙掃描中，偵測到裝置會自動加入列表')
+        scan.addEventListener('advertisementreceived', (e: any) => {
+          const addr = e.device?.id || e.device?.address || Math.random().toString(36).slice(2, 10)
+          const name = e.device?.name || e.name || e.localName || `未知裝置 ${addr.slice(0, 6)}`
+          setBtDevices(prev => prev.some(d => d.id === addr) ? prev : [...prev, { id: addr, name, connected: false }])
+        })
+      } else {
+        // Fallback: requestDevice (requires dialog)
+        const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [] })
+        if (device) {
+          const id = device.id || Math.random().toString(36).slice(2, 10)
+          const name = device.name || `藍牙裝置 ${id.slice(0, 6)}`
+          setBtDevices(prev => prev.some(d => d.id === id) ? prev.map(d => d.id === id ? { ...d, name, deviceRef: device } : d) : [...prev, { id, name, connected: false, deviceRef: device }])
+          setBleStatus(`已找到裝置: ${name}`)
+          setTimeout(() => setBleStatus(null), 3000)
+        }
+        setBtScanning(false)
+      }
+    } catch (e: any) {
+      setBtScanning(false)
+      if (e.name !== 'NotFoundError') setBleStatus('藍牙掃描失敗: ' + String(e))
+    }
+  }, [btScanning])
 
   const sigRef = useRef<SignalingClient | null>(null)
   const peerRef = useRef<WebRTCPeer | null>(null)
@@ -874,6 +920,50 @@ export default function WebApp() {
               <span className="webapp-tech-pill">WebRTC</span>
               <span className="webapp-tech-pill">WebSocket</span>
               <span className="webapp-tech-pill">點對點加密</span>
+            </div>
+
+            {/* Bluetooth scan */}
+            <div className="wc-section">
+              <span className="wc-label">附近藍牙裝置</span>
+              <div className="bt-scan-bar">
+                <button className="bt-scan-btn" onClick={btScanning ? stopBtScan : startBtScan}
+                  disabled={!sigOk || connected || connecting}
+                  aria-label={btScanning ? '停止藍牙掃描' : '掃描附近藍牙裝置'}
+                  aria-disabled={!sigOk || connected || connecting}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+                  </svg>
+                  {btScanning ? (btAutoScan ? '掃描中…' : '停止') : '掃描藍牙'}
+                </button>
+                {btScanning && (
+                  <button className="bt-clear-btn" onClick={() => setBtDevices([])} aria-label="清除裝置列表">
+                    清除
+                  </button>
+                )}
+              </div>
+              {bleStatus && <span className="wc-muted" style={{fontSize:12,marginTop:4,display:'block'}}>{bleStatus}</span>}
+              {btAutoScan && (
+                <span className="wc-muted" style={{fontSize:11,marginTop:2,display:'block',color:'var(--text-dim)'}}>
+                  藍牙低功耗掃描中，附近裝置名稱會自動顯示
+                </span>
+              )}
+              {Array.isArray(btDevices) && btDevices.length > 0 && (
+                <div className="bt-device-list">
+                  {btDevices.map(d => (
+                    <div key={d.id} className={`bt-device-item ${d.connected ? 'bt-connected' : ''}`}>
+                      <span className="bt-device-icon">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+                        </svg>
+                      </span>
+                      <span className="bt-device-name">{d.name || '未知裝置'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!btScanning && Array.isArray(btDevices) && btDevices.length === 0 && (
+                <span className="wc-muted" style={{fontSize:12}}>未掃描 — 按下「掃描藍牙」搜尋附近裝置</span>
+              )}
             </div>
 
             {/* Connection Dashboard */}
