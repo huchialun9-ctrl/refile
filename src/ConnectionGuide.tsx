@@ -8,7 +8,9 @@ interface Props {
 }
 
 export default function ConnectionGuide({ open, onClose }: Props) {
-  const [dontShow, setDontShow] = useState(false)
+  const [dontShow, setDontShow] = useState(
+    () => localStorage.getItem(GUIDE_KEY) === '1'
+  )
 
   if (!open) return null
 

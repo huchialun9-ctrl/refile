@@ -79,10 +79,13 @@ export default function WebApp() {
   const [showTextPreview, setShowTextPreview] = useState<string | null>(null)
   const [showGuide, setShowGuide] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [copyLabel, setCopyLabel] = useState('')
+  const [copiedLink, setCopiedLink] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewType, setPreviewType] = useState<'text' | 'image' | 'pdf' | null>(null)
   const [previewName, setPreviewName] = useState('')
+  const [starCount, setStarCount] = useState(0)
+  const [commits, setCommits] = useState<{sha: string; message: string; url: string}[]>([])
+  const [cardTab, setCardTab] = useState<'commits' | 'issues'>('commits')
   const [roomOpen, setRoomOpen] = useState(false)
   const [dontShow, setDontShow] = useState(
     () => localStorage.getItem('reflie_guide_done') === '1'
@@ -225,6 +228,17 @@ export default function WebApp() {
   const prevBlobUrlsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
+    fetch('https://api.github.com/repos/huchialun9-ctrl/refile')
+      .then(r => r.json() as Promise<{stargazers_count?: number}>)
+      .then(d => { if (d.stargazers_count) setStarCount(d.stargazers_count) })
+      .catch(() => {})
+    fetch('https://api.github.com/repos/huchialun9-ctrl/refile/commits?per_page=5')
+      .then(r => r.json() as Promise<{sha: string; commit: {message: string}; html_url: string}[]>)
+      .then(d => setCommits(d.map(c => ({ sha: c.sha.slice(0, 7), message: c.commit.message.split('\n')[0], url: c.html_url }))))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
   }, [darkMode])
 
@@ -303,7 +317,7 @@ export default function WebApp() {
           ))
         }
         if (isText) {
-          blob.text().then(text => update({ isText: true, textContent: text }))
+          blob.text().then(text => update({ isText: true, textContent: text })).catch(() => {})
         } else {
           update({})
         }
@@ -567,7 +581,7 @@ export default function WebApp() {
   useEffect(() => {
     if (!('Notification' in window)) return
     if (Notification.permission === 'denied') return
-    if (Notification.permission === 'default') { Notification.requestPermission().then(p => { if (p !== 'granted') return }) }
+    if (Notification.permission === 'default') { Notification.requestPermission().then(p => { if (p !== 'granted') return }).catch(() => {}) }
     const newDone = transfers.filter(t => t.status === 'done' && t.direction === 'receive' && !notifiedRef.current.has(t.id))
     newDone.forEach(t => {
       try {
@@ -611,8 +625,8 @@ export default function WebApp() {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(fmtPeer(peerId)).then(() => {
-      setCopied(true); setCopyLabel('ID 已複製')
-      setTimeout(() => { setCopied(false); setCopyLabel('') }, 2000)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     })
   }
 
@@ -648,8 +662,8 @@ export default function WebApp() {
       navigator.share({ title: 're/file 連線', url })
     } else {
       navigator.clipboard.writeText(url).then(() => {
-        setCopied(true); setCopyLabel('連結已複製')
-        setTimeout(() => { setCopied(false); setCopyLabel('') }, 2000)
+        setCopiedLink(true)
+        setTimeout(() => setCopiedLink(false), 2000)
       })
     }
   }
@@ -872,7 +886,7 @@ export default function WebApp() {
           <button className="topbar-blob" onClick={() => setShowGuide(true)} title="使用說明" aria-label="使用說明">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
           </button>
-          <span className="webapp-wordmark" role="img" aria-label="re/file 標誌">re/<span>file</span></span>
+          <span className="webapp-wordmark" aria-label="re/file 標誌">re/<span>file</span></span>
         </div>
         <div className="topbar-right">
           <button className="topbar-btn" title={connected ? '傳送文字' : '需先連線才能傳送文字'}
@@ -903,6 +917,7 @@ export default function WebApp() {
       <main className="webapp-main">
         <div className="webapp-bg"></div>
         <div className="webapp-main-scroll">
+          <div className="webapp-layout-inner">
           <div className="webapp-main-center">
 
             {/* My ID */}
@@ -946,9 +961,9 @@ export default function WebApp() {
                   <div className="room-card">
                     <p className="room-url">{location.origin}{location.pathname}?peer={peerId}</p>
                     <div className="wc-btns">
-                      <button className="wc-btn" onClick={() => { navigator.clipboard.writeText(`${location.origin}${location.pathname}?peer=${peerId}`); setCopied(true); setCopyLabel('連結已複製'); setTimeout(() => { setCopied(false); setCopyLabel('') }, 2000) }} aria-label="複製連線連結">
+                      <button className="wc-btn" onClick={() => { navigator.clipboard.writeText(`${location.origin}${location.pathname}?peer=${peerId}`); setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000) }} aria-label="複製連線連結">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                        {copyLabel || '複製連結'}
+                        {copiedLink ? '已複製' : '複製連結'}
                       </button>
                       <button className="wc-btn" onClick={handleShowQR} aria-label="顯示 QR Code">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="4" height="4"/></svg>
@@ -1158,7 +1173,7 @@ export default function WebApp() {
                     </svg>
                     <p>拖曳檔案到這裡</p>
                     <p>或</p>
-                    <span className="browse-button" onClick={() => fileInputRef.current?.click()} role="button" tabIndex={0} aria-label="選擇檔案">選擇檔案</span>
+                    <span className="browse-button" onClick={() => fileInputRef.current?.click()} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }} role="button" tabIndex={0} aria-label="選擇檔案">選擇檔案</span>
                   </div>
                 </label>
                 <button className="dz-text-btn" onClick={() => setShowTextShare(true)} aria-label="使用文字編輯器">
@@ -1228,6 +1243,84 @@ export default function WebApp() {
               </div>
             )}
           </div>
+
+          <aside className="webapp-doc-panel">
+            <div className="card-container">
+              <div className="card-border"></div>
+              <svg style={{position:'absolute',width:0,height:0}}>
+                <filter id="unopaq"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.65 0"/></filter>
+                <filter id="unopaq2"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.85 0"/></filter>
+                <filter id="unopaq3"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/></filter>
+              </svg>
+              <div className="spin spin-blur"><div className="spin spin-intense"></div></div>
+              <div className="spin spin-inside"></div>
+              <div className="backdrop"></div>
+              <div className="card">
+                <div className="header">
+                  <div className="top-header">
+                    <div className="repo">
+                      <svg className="gh-icon" viewBox="0 0 16 16" fill="currentColor" style={{height:'1.25em',width:'1.25em'}}>
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                      </svg>
+                      <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer">huchialun9-ctrl</a>
+                      <span className="repo-slash">/</span>
+                      <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer" className="repo-name">refile</a>
+                    </div>
+                    <div className="space"></div>
+                    <div className="icon" onClick={() => window.open('https://github.com/huchialun9-ctrl/refile', '_blank')}>
+                      <svg viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                      </svg>
+                    </div>
+                    <div className="icon" onClick={() => window.open('https://github.com/huchialun9-ctrl/refile/stargazers', '_blank')}>
+                      <svg viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25zm0 2.445L6.615 5.5a.75.75 0 01-.564.41l-3.097.45 2.24 2.184a.75.75 0 01.216.664l-.528 3.084 2.769-1.456a.75.75 0 01.698 0l2.77 1.456-.53-3.084a.75.75 0 01.216-.664l2.24-2.183-3.096-.45a.75.75 0 01-.564-.41L8 2.694z"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="btm-header">
+                    <div className={`tab${cardTab === 'commits' ? ' active' : ''}`} onClick={() => setCardTab('commits')} role="tab" aria-selected={cardTab === 'commits'}>
+                      <svg className="tab-icon" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8zm9 3a1 1 0 11-2 0 1 1 0 012 0zm-.23-5.36l-.26 2.02a.47.47 0 01-.49.42h-.04a.47.47 0 01-.49-.42l-.26-2.02A.87.87 0 017 4.87v-.37c0-.33.28-.5.5-.5h1c.22 0 .5.17.5.5v.37c0 .36-.07.68-.23.77z"/>
+                      </svg>
+                      最近更新
+                    </div>
+                    <div className="tab" onClick={() => window.open('https://github.com/huchialun9-ctrl/refile/issues', '_blank')} role="tab">
+                      <svg className="tab-icon" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 9.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM8 0a8 8 0 110 16A8 8 0 018 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z"/>
+                      </svg>
+                      Issues
+                    </div>
+                  </div>
+                </div>
+                <div className="content">
+                  <div className="prs">
+                    {commits.length === 0 && (
+                      <div className="pr"><div className="pr-text"><div className="pr-title" style={{color:'#797d86',fontSize:12}}>載入中…</div></div></div>
+                    )}
+                    {commits.map(c => (
+                      <div key={c.sha} className="pr">
+                        <label className="checkbox" onClick={e => e.stopPropagation()}>
+                          <input type="checkbox" />
+                          <div className="checkbox"></div>
+                        </label>
+                        <div className="pr-icon">
+                          <svg viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 4a4 4 0 110 8 4 4 0 010-8z"/>
+                          </svg>
+                        </div>
+                        <div className="pr-text">
+                          <div className="pr-title" onClick={() => window.open(c.url, '_blank')}>{c.message}</div>
+                          <div className="pr-desc">{c.sha}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+          </div>
           </div>
         </main>
 
@@ -1235,7 +1328,7 @@ export default function WebApp() {
       <footer className="webapp-footer">
         <div className="webapp-footer-inner">
           <span className="webapp-footer-brand">
-            re/<span>file</span> <span className="webapp-footer-ver">v0.1.0</span>
+            re/<span>file</span> <span className="webapp-footer-ver">v0.2.0</span>
           </span>
           <span className="webapp-footer-tag">檔案直接點對點傳，不經過伺服器</span>
           <span className="webapp-footer-links">

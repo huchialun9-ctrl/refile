@@ -399,13 +399,15 @@ function App() {
     if (isTauri) {
       safeListen<{type: string; paths: string[]; position: {x: number; y: number}}>('tauri://drag-drop', payload => {
         if (payload.type === 'drop' && payload.paths?.length) {
-          handleFileDrop(payload.paths)
+          handleFileDropRef.current(payload.paths)
         }
       })
     }
 
     return () => { unsubs.forEach(fn => fn()) }
   }, [])
+
+  const handleFileDropRef = useRef<(paths: string[]) => void>(() => {})
 
   const handleFileDrop = useCallback(async (paths: string[]) => {
     if (!selectedPeer) return
@@ -415,6 +417,7 @@ function App() {
       } catch (e) { console.error('File drop send error:', e) }
     }
   }, [selectedPeer])
+  handleFileDropRef.current = handleFileDrop
 
   const handleAccept = useCallback(async (id: string) => {
     try {
@@ -459,11 +462,11 @@ function App() {
       const [host, port] = await invoke<[string, number]>('my_info').catch(() => ['', 0] as [string, number])
       const peer = sigOk && sigPeerId ? sigPeerId : myPeerId
       const label = `${fmtId(peer)}${host ? ` @ ${host}:${port}` : ''}`
-      setQrData(peer)
+      setQrData(`re-file:peer:${peer}`)
       setQrLabel(label)
       setShowQR(true)
     } catch (e) {
-      setQrData(fmtId(myPeerId))
+      setQrData(`re-file:peer:${myPeerId}`)
       setQrLabel(`ID: ${fmtId(myPeerId)}`)
       setShowQR(true)
     }
