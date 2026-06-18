@@ -1590,6 +1590,27 @@
   opacity: 0.7;
 }
 
+/* ── Language Switcher ── */
+.lang-switch {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.3px;
+  transition: border-color 0.15s, color 0.15s;
+  line-height: 1.4;
+}
+
+.lang-switch:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .sidebar {
@@ -4126,9 +4147,17 @@
   background: var(--yellow-bg);
   color: var(--yellow);
 }
+.webapp-tx-badge.paused {
+  background: var(--orange-bg, rgba(255, 165, 0, 0.15));
+  color: var(--orange, #f5a623);
+}
 .webapp-tx.cancelled {
   border-left: 3px solid var(--yellow);
   opacity: 0.7;
+}
+.webapp-tx.paused {
+  border-left: 3px solid var(--orange, #f5a623);
+  opacity: 0.85;
 }
 
 /* ═══════════════════════════════════════════
@@ -4428,4 +4457,259 @@
   .docs-layout {
     padding: 0 16px;
   }
+}
+
+/* ── PWA Install Prompt ── */
+.pwa-prompt-overlay {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  max-width: 420px;
+  width: calc(100% - 32px);
+  animation: pwaSlideUp 0.3s ease-out;
+}
+
+@keyframes pwaSlideUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.pwa-prompt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  backdrop-filter: blur(12px);
+}
+
+.pwa-prompt-icon {
+  flex-shrink: 0;
+}
+
+.pwa-prompt-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.pwa-prompt-text strong {
+  color: var(--text);
+}
+
+.pwa-prompt-text span {
+  color: var(--text-dim);
+}
+
+.pwa-prompt-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.pwa-prompt-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.pwa-prompt-btn:hover {
+  opacity: 0.85;
+}
+
+.pwa-prompt-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.pwa-prompt-cancel {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+/* ── Update Checker ── */
+.update-overlay {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 9998;
+  max-width: 380px;
+  width: calc(100% - 32px);
+  animation: pwaSlideUp 0.3s ease-out;
+}
+
+.update-prompt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.update-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.update-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.update-text strong {
+  color: var(--text);
+}
+
+.update-text span {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.update-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.update-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.update-btn:hover { opacity: 0.85; }
+
+.update-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.update-skip {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+/* ── Contacts ── */
+.wc-contacts {
+  margin-top: 4px;
+}
+
+.wc-contact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.wc-contact-row:last-child {
+  border-bottom: none;
+}
+
+.wc-contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.wc-contact-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wc-contact-id {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: monospace;
+}
+
+.wc-contact-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.wc-contact-connect,
+.wc-contact-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: all 0.15s;
+}
+
+.wc-contact-connect:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.wc-contact-remove:hover {
+  color: var(--danger, #e74c3c);
+  border-color: var(--danger, #e74c3c);
+}
+
+.wc-contact-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.wc-contact-input {
+  font-size: 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg, var(--bg));
+  color: var(--text);
+  outline: none;
+}
+
+.wc-contact-input:focus {
+  border-color: var(--accent);
+}
+
+.wc-contact-add-actions {
+  display: flex;
+  gap: 6px;
 }

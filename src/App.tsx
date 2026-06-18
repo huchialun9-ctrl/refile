@@ -15,6 +15,7 @@ import WebApp from './WebApp'
 import { SignalingClient } from './webrtc/signaling'
 import { WebRTCPeer } from './webrtc/peer'
 import './App.css'
+import i18n from './i18n'
 
 function formatSize(bytes: number): string {
   if (bytes === 0) return '0 B'
@@ -31,18 +32,18 @@ function formatSpeed(bytesPerSec: number): string {
 function formatETA(bytesPerSec: number, remaining: number): string {
   if (bytesPerSec <= 0) return '--'
   const secs = remaining / bytesPerSec
-  if (secs < 60) return Math.ceil(secs) + '秒'
-  if (secs < 3600) return Math.ceil(secs / 60) + '分鐘'
-  return Math.ceil(secs / 3600) + '小時'
+  if (secs < 60) return i18n.t('app.eta.seconds', { secs: Math.ceil(secs) })
+  if (secs < 3600) return i18n.t('app.eta.minutes', { mins: Math.ceil(secs / 60) })
+  return i18n.t('app.eta.hours', { hrs: Math.ceil(secs / 3600) })
 }
 
 function statusLabel(s: TransferSession['status']): string {
-  if (s === 'Pending') return '等待確認'
-  if (s === 'Transferring') return '傳輸中'
-  if (s === 'Verifying') return '校驗中'
-  if (s === 'Completed') return '已完成'
-  if (s === 'Cancelled') return '已取消'
-  if (typeof s === 'object' && 'Failed' in s) return '失敗'
+  if (s === 'Pending') return i18n.t('app.status.pending')
+  if (s === 'Transferring') return i18n.t('app.status.transferring')
+  if (s === 'Verifying') return i18n.t('app.status.verifying')
+  if (s === 'Completed') return i18n.t('app.status.completed')
+  if (s === 'Cancelled') return i18n.t('app.status.cancelled')
+  if (typeof s === 'object' && 'Failed' in s) return i18n.t('app.status.failed')
   return String(s)
 }
 
@@ -53,8 +54,8 @@ function directionIcon(dir: TransferSession['direction']): string {
 function formatTime(iso: string): string {
   try {
     const d = new Date(iso)
-    return d.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', year: 'numeric' }) +
-      ' ' + d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
+    return d.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric', year: 'numeric' }) +
+      ' ' + d.toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })
   } catch { return iso }
 }
 
@@ -361,8 +362,8 @@ function App() {
         const settings = loadPrivacy()
         if (settings.showNotifications) {
           try {
-            const dir = s.direction === 'Send' ? '上傳' : '下載'
-            sendNotification({ title: 're/file', body: `${dir}完成：${s.file_name}` })
+            const dir = i18n.t(s.direction === 'Send' ? 'app.status.send' : 'app.status.receive')
+            sendNotification({ title: 're/file', body: i18n.t('app.notificationBody', { dir, fileName: s.file_name }) })
           } catch (e) { console.error('Notification error:', e) }
         }
         return { ...prev, [payload]: { ...s, status: 'Completed', progress: 1 } }
@@ -490,7 +491,7 @@ function App() {
     if (!sigOk || !sigPeerId) return
     const url = `${window.location.origin}${window.location.pathname}?peer=${sigPeerId}`
     navigator.clipboard.writeText(url).then(() => {
-      setShareLabel('✓ 已複製連結')
+      setShareLabel(i18n.t('app.copiedLink'))
       setTimeout(() => setShareLabel(''), 2000)
     })
   }, [sigOk, sigPeerId])
@@ -625,7 +626,7 @@ function App() {
         <div className="tl-body">
           <div className="tl-title-row">
             <span className="tl-title">
-              {t.direction === 'Send' ? '上傳' : '下載'}
+              {i18n.t(t.direction === 'Send' ? 'app.status.send' : 'app.status.receive')}
             </span>
             <span className="tl-peer">{t.peer_name || t.peer_id.slice(0, 8)}</span>
           </div>
@@ -650,7 +651,7 @@ function App() {
             <div className="tl-status">
               <span className={`tl-badge ${t.status === 'Completed' ? 'badge-done' : t.status === 'Cancelled' ? 'badge-fail' : isFailed ? 'badge-fail' : ''}`}>
                 {isFailed && typeof t.status === 'object' && 'Failed' in t.status
-                  ? '失敗: ' + t.status.Failed
+                  ? i18n.t('app.status.failed') + ': ' + t.status.Failed
                   : statusLabel(t.status)}
               </span>
             </div>
@@ -658,26 +659,26 @@ function App() {
 
           {truncated && (
             <button className="tl-expand" onClick={() => toggleExpand(t.id)}>
-              {isExpanded ? '收起' : '顯示更多'}
+              {isExpanded ? i18n.t('app.collapse') : i18n.t('app.showMore')}
             </button>
           )}
 
           <div className="tl-actions">
             {t.status === 'Pending' && t.direction === 'Receive' && (
               <>
-                <button className="btn btn-accept" onClick={() => handleAccept(t.id)}>同意</button>
-                <button className="btn btn-reject" onClick={() => handleReject(t.id)}>拒絕</button>
+                <button className="btn btn-accept" onClick={() => handleAccept(t.id)}>{i18n.t('app.accept')}</button>
+                <button className="btn btn-reject" onClick={() => handleReject(t.id)}>{i18n.t('app.reject')}</button>
               </>
             )}
             {(t.status === 'Pending' || t.status === 'Transferring') && (
-              <button className="btn btn-reject" onClick={() => handleCancel(t.id)}>取消</button>
+              <button className="btn btn-reject" onClick={() => handleCancel(t.id)}>{i18n.t('app.cancel')}</button>
             )}
           </div>
 
           <time className="tl-time">{formatTime(t.created_at)}</time>
           {t.savedPath && (
             <button className="btn btn-open-folder" onClick={() => invoke('open_folder', { path: t.savedPath }).catch(e => console.error('Open folder error:', e))}>
-              開啟資料夾
+              {i18n.t('app.openFolder')}
             </button>
           )}
         </div>
@@ -689,34 +690,34 @@ function App() {
     <>
       <div className="topbar">
         <div className="topbar-left">
-          <span className={`status-dot-indicator ${connectionStatus}`} title={connectionStatus === 'green' ? 'P2P 已連線' : '搜尋中…'} />
+          <span className={`status-dot-indicator ${connectionStatus}`} title={connectionStatus === 'green' ? i18n.t('app.p2pConnected') : i18n.t('app.searching')} />
           <span className="device-id-badge">
             <span className="os-icon">{getOSIcon()}</span>
-            本機裝置
+            {i18n.t('app.localDevice')}
             <span className="os-name">{getOSName()}</span>
           </span>
         </div>
         <div className="topbar-right">
-          <button className="topbar-btn" onClick={() => setShowTextShare(true)} title="傳送文字" aria-label="傳送文字">
+          <button className="topbar-btn" onClick={() => setShowTextShare(true)} title={i18n.t('app.sendText')} aria-label={i18n.t('app.sendText')}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </button>
-          <button className="topbar-btn" title="下載桌面版" aria-label="下載桌面版" onClick={() => {
+          <button className="topbar-btn" title={i18n.t('app.downloadDesktop')} aria-label={i18n.t('app.downloadDesktop')} onClick={() => {
             const url = window.location.origin + window.location.pathname + '#download'
             window.open(url, '_blank', 'noopener,noreferrer')
           }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><polyline points="8 12 12 16 16 12"/></svg>
           </button>
-          <button className="topbar-btn" title="連線說明" aria-label="連線說明" onClick={() => setShowGuide(true)}>
+          <button className="topbar-btn" title={i18n.t('app.connectionGuide')} aria-label={i18n.t('app.connectionGuide')} onClick={() => setShowGuide(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </button>
-          <button className="topbar-btn" title="隱私權設定" aria-label="隱私權設定" onClick={() => setShowPrivacy(true)}>
+          <button className="topbar-btn" title={i18n.t('app.privacySettings')} aria-label={i18n.t('app.privacySettings')} onClick={() => setShowPrivacy(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </button>
-          <button className="topbar-btn" title="QR Code 連線" aria-label="QR Code 連線" onClick={handleShowQR}>
+          <button className="topbar-btn" title={i18n.t('app.qrConnect')} aria-label={i18n.t('app.qrConnect')} onClick={handleShowQR}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="4" height="4"/></svg>
           </button>
-          <label className="main-toggle" title={darkMode ? '淺色模式' : '深色模式'} aria-label={darkMode ? '淺色模式' : '深色模式'}>
-            <input type="checkbox" className="main-checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} aria-label={darkMode ? '切換淺色模式' : '切換深色模式'} />
+          <label className="main-toggle" title={darkMode ? i18n.t('app.lightMode') : i18n.t('app.darkMode')} aria-label={darkMode ? i18n.t('app.lightMode') : i18n.t('app.darkMode')}>
+            <input type="checkbox" className="main-checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} aria-label={darkMode ? i18n.t('app.switchLight') : i18n.t('app.switchDark')} />
             <div className="main-track"></div>
             <div className="main-knob"></div>
           </label>
@@ -726,7 +727,7 @@ function App() {
       {!isTauri && (
         <div className="web-banner" onClick={() => window.open(window.location.origin + window.location.pathname + '#download', '_blank')}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><polyline points="8 12 12 16 16 12"/></svg>
-          下載桌面版使用完整 P2P 傳輸
+          {i18n.t('app.bannerDownload')}
         </div>
       )}
 
@@ -736,8 +737,8 @@ function App() {
             <div className="modal-icon">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             </div>
-            <h3>接收檔案請求</h3>
-            <p className="modal-peer">{incomingTransfer.peer_name || '未知裝置'} 想傳送一個檔案</p>
+            <h3>{i18n.t('app.incomingTransfer')}</h3>
+            <p className="modal-peer">{i18n.t('app.transferFrom', { name: incomingTransfer.peer_name || i18n.t('app.unknownDevice') })}</p>
             <div className="modal-file-info">
               <span className="modal-filename">{incomingTransfer.file_name}</span>
               <span className="modal-filesize">{formatSize(incomingTransfer.file_size)}</span>
@@ -745,11 +746,11 @@ function App() {
             <div className="modal-actions">
               <button className="btn btn-accept modal-btn" onClick={() => handleAccept(incomingTransfer.id)}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                接受
+                {i18n.t('app.accept')}
               </button>
               <button className="btn btn-reject modal-btn" onClick={() => handleReject(incomingTransfer.id)}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                拒絕
+                {i18n.t('app.reject')}
               </button>
             </div>
           </div>
@@ -759,20 +760,20 @@ function App() {
       {showTextShare && (
         <div className="modal-overlay" onClick={() => setShowTextShare(false)}>
           <div className="modal-dialog modal-narrow" onClick={e => e.stopPropagation()}>
-            <h3>傳送文字</h3>
+            <h3>{i18n.t('app.sendTextTitle')}</h3>
             <textarea
               className="text-share-input"
-              placeholder="輸入要傳送的網址、密碼、或任何文字…"
+              placeholder={i18n.t('app.sendTextPlaceholder')}
               value={textToSend}
               onChange={e => setTextToSend(e.target.value)}
               rows={4}
             />
             <div className="modal-actions">
               <button className="btn btn-accept modal-btn" onClick={handleSendText} disabled={!textToSend.trim()}>
-                傳送
+                {i18n.t('common.send')}
               </button>
               <button className="btn btn-reject modal-btn" onClick={() => setShowTextShare(false)}>
-                取消
+                {i18n.t('common.cancel')}
               </button>
             </div>
           </div>
@@ -782,35 +783,35 @@ function App() {
       <aside className={`sidebar${!isTauri ? ' web' : ''}`}>
         <div className="sidebar-header">
           <div className="logo">re/<span>file</span></div>
-          <div className="subtitle">P2P 檔案傳輸 · 點對點加密</div>
+          <div className="subtitle">{i18n.t('app.sidebarSubtitle')}</div>
           <div className="security-badge">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            端到端加密
+            {i18n.t('app.e2eEncrypted')}
           </div>
         </div>
 
         <div className="sidebar-id-panel">
-          <div className="sid-label">我的 ID</div>
+          <div className="sid-label">{i18n.t('app.myId')}</div>
           <div className="sid-id-row">
             <span className="sid-icon">{getOSIcon()}</span>
             <span className="sid-id">{sigOk && sigPeerId ? sigPeerId : fmtId(myPeerId)}</span>
-            {sigConnecting && <span className="sid-badge sid-badge-pending">連線中…</span>}
-            {sigOk && <span className="sid-badge sid-badge-ok">線上</span>}
+            {sigConnecting && <span className="sid-badge sid-badge-pending">{i18n.t('app.connecting')}</span>}
+            {sigOk && <span className="sid-badge sid-badge-ok">{i18n.t('app.online')}</span>}
             {sigError && <span className="sid-badge sid-badge-err">{sigError}</span>}
           </div>
           <div className="sid-actions">
-            <button className="sid-btn" onClick={handleCopyId} title="複製 ID" aria-label="複製裝置 ID">
+            <button className="sid-btn" onClick={handleCopyId} title={i18n.t('app.copyId')} aria-label={i18n.t('app.copyDeviceId')}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              {copiedId ? '已複製' : '複製'}
+              {copiedId ? i18n.t('common.copied') : i18n.t('common.copy')}
             </button>
-            <button className="sid-btn" onClick={handleShowQR} title="QR Code" aria-label="顯示 QR Code">
+            <button className="sid-btn" onClick={handleShowQR} title={i18n.t('app.showQR')} aria-label={i18n.t('app.showQR')}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="4" height="4"/></svg>
-              QR
+              {i18n.t('myid.qr')}
             </button>
             {sigOk && (
-              <button className="sid-btn sid-share-btn" onClick={handleShareLink} title="複製分享連結" aria-label="複製分享連結">
+              <button className="sid-btn sid-share-btn" onClick={handleShareLink} title={i18n.t('app.shareLinkTitle')} aria-label={i18n.t('app.shareLinkTitle')}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                {shareLabel || '分享'}
+                {shareLabel || i18n.t('app.shareLink')}
               </button>
             )}
           </div>
@@ -820,10 +821,10 @@ function App() {
             <div className="sid-connected-panel">
               <div className="sid-connected-row">
                 <span className="status-dot-indicator green" />
-                <span className="sid-peer-name">已連線 {sigRemotePeerId}</span>
+                <span className="sid-peer-name">{i18n.t('app.connectedTo', { id: sigRemotePeerId })}</span>
               </div>
               <button className="sid-btn sid-disconnect-btn" onClick={handleSigDisconnect}>
-                中斷連線
+                {i18n.t('app.disconnect')}
               </button>
             </div>
           )}
@@ -832,7 +833,7 @@ function App() {
           {sigOk && onlinePeers.length > 0 && (
             <>
               <div className="sid-divider" />
-              <div className="sid-label">線上用戶</div>
+              <div className="sid-label">{i18n.t('app.onlineUsers')}</div>
               <div className="sid-online-list">
                 {onlinePeers.filter(p => p.id !== sigPeerId).map(p => (
                   <div key={p.id} className="sid-online-row">
@@ -847,23 +848,23 @@ function App() {
 
           <div className="sid-divider" />
 
-          <div className="sid-label">連到對方</div>
+          <div className="sid-label">{i18n.t('app.connectToPeer')}</div>
           <div className="sid-connect-form">
-            <input className="sid-input" aria-label="貼上對方 ID"
-              placeholder="貼上對方 ID"
+            <input className="sid-input" aria-label={i18n.t('app.pastePeerId')}
+              placeholder={i18n.t('app.pastePeerId')}
               value={inputPeerId}
               onChange={e => setInputPeerId(e.target.value.toUpperCase().replace(/[^A-F0-9-]/g, ''))}
               onKeyDown={e => e.key === 'Enter' && handleIdConnect()}
               maxLength={9}
               disabled={peerConnecting}
             />
-            <button className="sid-go-btn" aria-label="連線至對方" onClick={handleIdConnect}
+            <button className="sid-go-btn" aria-label={i18n.t('app.connectToPeerAria')} onClick={handleIdConnect}
               disabled={peerConnecting || inputPeerId.replace('-', '').length < 6}>
-              {peerConnecting ? '…' : '連線'}
+              {peerConnecting ? '…' : i18n.t('app.connectBtn')}
             </button>
           </div>
-          {idSearchResult === 'found' && <div className="sid-msg sid-msg-ok">已選取相符裝置</div>}
-          {idSearchResult === 'not-found' && <div className="sid-msg sid-msg-err">找不到此 ID 的裝置</div>}
+          {idSearchResult === 'found' && <div className="sid-msg sid-msg-ok">{i18n.t('app.deviceFound')}</div>}
+          {idSearchResult === 'not-found' && <div className="sid-msg sid-msg-err">{i18n.t('app.deviceNotFound')}</div>}
           {selectedPeer && !sigRemotePeerId && (
             <div className="sid-connected-row">
               <span className="status-dot-indicator green" />
@@ -875,8 +876,8 @@ function App() {
         </div>
 
         <div className="device-list">
-          <div className="list-title">區域網路裝置</div>
-          {devices.length === 0 && <div className="empty">正在搜尋裝置…</div>}
+          <div className="list-title">{i18n.t('app.lanDevices')}</div>
+          {devices.length === 0 && <div className="empty">{i18n.t('app.searchingDevices')}</div>}
           {devices.map(d => (
             <DeviceCard
               key={d.id}
@@ -903,40 +904,40 @@ function App() {
           <div className="tl-pane tl-pane-send">
             <div className="tl-pane-header">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-              上傳
+              {i18n.t('app.upload')}
               <span className="tl-pane-count">{transferList.filter(t => t.direction === 'Send').length}</span>
-              <button className="tl-clear-btn" onClick={() => setTransfers(prev => { const n = {...prev}; Object.keys(n).forEach(k => { if (n[k].direction === 'Send') delete n[k] }); return n })} title="清除記錄">✕</button>
+              <button className="tl-clear-btn" onClick={() => setTransfers(prev => { const n = {...prev}; Object.keys(n).forEach(k => { if (n[k].direction === 'Send') delete n[k] }); return n })} title={i18n.t('app.clearRecords')}>✕</button>
             </div>
             <div className="tl-pane-body">
               {transferList.filter(t => t.direction === 'Send').map(t => renderTimelineItem(t))}
-              {transferList.filter(t => t.direction === 'Send').length === 0 && <div className="empty">尚無傳送記錄</div>}
+              {transferList.filter(t => t.direction === 'Send').length === 0 && <div className="empty">{i18n.t('app.noSendRecords')}</div>}
             </div>
           </div>
           <div className="tl-divider" />
           <div className="tl-pane tl-pane-recv">
             <div className="tl-pane-header">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-              下載
+              {i18n.t('app.download')}
               <span className="tl-pane-count">{transferList.filter(t => t.direction === 'Receive').length}</span>
-              <button className="tl-clear-btn" onClick={() => setTransfers(prev => { const n = {...prev}; Object.keys(n).forEach(k => { if (n[k].direction === 'Receive') delete n[k] }); return n })} title="清除記錄">✕</button>
+              <button className="tl-clear-btn" onClick={() => setTransfers(prev => { const n = {...prev}; Object.keys(n).forEach(k => { if (n[k].direction === 'Receive') delete n[k] }); return n })} title={i18n.t('app.clearRecords')}>✕</button>
             </div>
             <div className="tl-pane-body">
               {transferList.filter(t => t.direction === 'Receive').map(t => renderTimelineItem(t))}
-              {transferList.filter(t => t.direction === 'Receive').length === 0 && <div className="empty">尚無接收記錄</div>}
+              {transferList.filter(t => t.direction === 'Receive').length === 0 && <div className="empty">{i18n.t('app.noReceiveRecords')}</div>}
             </div>
           </div>
         </div>
 
         <footer className="app-footer">
-          <span className="footer-legal">檔案經點對點加密後直接傳輸，絕不儲存於任何伺服器</span>
+          <span className="footer-legal">{i18n.t('app.footerLegal')}</span>
           <span className="footer-links">
             <a href="https://github.com/huchialun9-ctrl/refile" target="_blank" rel="noopener noreferrer">GitHub</a>
             <span className="footer-sep">·</span>
-            <a href="https://opensource.org/license/mit" target="_blank" rel="noopener noreferrer">MIT 授權</a>
+            <a href="https://opensource.org/license/mit" target="_blank" rel="noopener noreferrer">{i18n.t('footer.mit')}</a>
             <span className="footer-sep">·</span>
-            <a href="https://github.com/huchialun9-ctrl/refile/issues" target="_blank" rel="noopener noreferrer">回報問題</a>
+            <a href="https://github.com/huchialun9-ctrl/refile/issues" target="_blank" rel="noopener noreferrer">{i18n.t('app.reportIssue')}</a>
           </span>
-          <span className="footer-disclaimer">re/file 不對傳輸中斷、檔案損壞或違法內容負擔法律責任</span>
+          <span className="footer-disclaimer">{i18n.t('app.footerDisclaimer')}</span>
         </footer>
       </main>
 

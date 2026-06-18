@@ -1,0 +1,29 @@
+{
+  "name": "re/file - P2P Encrypted File Transfer",
+  "short_name": "re/file",
+  "description": "P2P encrypted file transfer tool. Direct connection, no relay server.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#2383e2",
+  "orientation": "any",
+  "categories": ["utilities", "productivity"],
+  "lang": "zh-TW",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "32x32",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons.svg",
+      "sizes": "96x96 128x128 192x192 256x256 384x384 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

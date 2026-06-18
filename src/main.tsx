@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './i18n'
 import App from './App'
 import { ErrorBoundary } from './ErrorBoundary'
 
@@ -42,6 +43,13 @@ interface TauriWindow {
       sendNotification: (options: unknown) => void
     }
   }
+}
+
+// 3. Register service worker for PWA support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
 }
 
 // 🛠️ 2. 網頁環境偽造 Tauri API（避免瀏覽器執行時因 import Tauri 套件報錯）
