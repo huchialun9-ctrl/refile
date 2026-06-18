@@ -585,20 +585,10 @@ export default function WebApp() {
       {/* ── Topbar ── */}
       <div className="topbar">
         <div className="topbar-left">
+          <button className="topbar-blob" onClick={() => setShowGuide(true)} title="使用說明">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </button>
           <span className="webapp-wordmark">re/<span>file</span></span>
-          <span className="webapp-tag">網頁版</span>
-        </div>
-        <div className="topbar-center">
-          <span className={`webapp-ws-status ${wsState}`}>
-            <span className={`status-dot-indicator ${sigOk ? 'green' : 'yellow'}`} />
-            {wsState === 'ok' ? '已連線' : wsState === 'connecting' ? '連線中⋯' : '離線'}
-          </span>
-          {connected && (
-            <span className="webapp-topbar-peers">
-              <span className="status-dot-indicator green" />
-              {fmtPeer(remotePeerId)}
-            </span>
-          )}
         </div>
         <div className="topbar-right">
           <button className="topbar-btn" title={connected ? '傳送文字' : '需先連線才能傳送文字'}
@@ -630,10 +620,10 @@ export default function WebApp() {
       <main className="webapp-main">
         <div className="webapp-bg"></div>
         <div className="webapp-main-scroll">
-          {/* ── Controls bar ── */}
-          <div className="webapp-controls">
+          <div className="webapp-main-center">
+
             {/* My ID */}
-            <div className="wc-group">
+            <div className="wc-section">
               <span className="wc-label">我的 ID</span>
               {sigOk ? (
                 <>
@@ -661,7 +651,7 @@ export default function WebApp() {
             </div>
 
             {/* Connect */}
-            <div className="wc-group">
+            <div className="wc-section">
               <span className="wc-label">連到對方</span>
               {connected ? (
                 <div className="wc-connected">
@@ -688,9 +678,9 @@ export default function WebApp() {
               {sigError && <span className="wc-err">{sigError}</span>}
             </div>
 
-            {/* Online peers (compact) */}
+            {/* Online peers */}
             {onlinePeers.length > 0 && (
-              <div className="wc-group wc-online">
+              <div className="wc-section wc-online">
                 <span className="wc-label">在線 ({onlinePeers.length})</span>
                 <div className="wc-peer-list">
                   {onlinePeers.slice(0, 5).map(p => (
@@ -703,27 +693,6 @@ export default function WebApp() {
                 </div>
               </div>
             )}
-          </div>
-
-          <div className="webapp-main-center">
-
-            {/* Logo */}
-            <div className="webapp-mlogo">
-              <div className="webapp-mlogo-main">re/file</div>
-              <div className="webapp-mlogo-sub">peer to peer</div>
-            </div>
-
-            {/* Connection status */}
-            <div className="webapp-mstatus">
-              <div className={`status-dot ${connected ? 'green' : sigOk ? 'yellow' : 'red'}`} />
-              {connected ? (
-                <>已連線 — {remotePeerId ? fmtPeer(remotePeerId) : ''}</>
-              ) : sigOk ? (
-                <>等待連線中 · 你的 ID：{fmtPeer(peerId)}</>
-              ) : (
-                <>正在連線⋯</>
-              )}
-            </div>
 
             {/* Tech badges */}
             <div className="webapp-tech">

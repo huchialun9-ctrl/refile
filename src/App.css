@@ -1199,7 +1199,31 @@
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+}
+.topbar-blob {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+  border: none;
+  font-family: inherit;
+}
+.webapp-wordmark {
+  font-family: "Chelsea Market", cursive;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--accent);
+  letter-spacing: -0.3px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .topbar-right {
@@ -1207,40 +1231,6 @@
   align-items: center;
   gap: 4px;
 }
-.topbar-center {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  justify-content: center;
-  min-width: 0;
-}
-.webapp-ws-status {
-  font-size: 11px;
-  color: var(--text-dim);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.webapp-ws-status .status-dot-indicator {
-  width: 7px;
-  height: 7px;
-}
-.webapp-topbar-peers {
-  font-size: 11px;
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.5px;
-}
-.webapp-topbar-peers .status-dot-indicator {
-  width: 7px;
-  height: 7px;
-  background: var(--green);
-}
-
 .topbar-btn {
   width: 28px;
   height: 28px;
@@ -2052,27 +2042,7 @@
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body, ui-sans-serif, system-ui, sans-serif);
-}
 
-/* ── Topbar ── */
-.webapp-wordmark {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  font-family: var(--font-mono);
-}
-.webapp-wordmark span { color: var(--accent); }
-.webapp-tag {
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--bg);
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  margin-left: 6px;
-  vertical-align: middle;
-}
 
 /* ── Background (circuit grid) ── */
 .webapp-bg {
@@ -2137,31 +2107,22 @@
   flex-direction: column;
   align-items: center;
   overflow-y: auto;
-  padding: 0;
+  padding: 36px 0 0;
   position: relative;
   z-index: 1;
   min-height: 0;
 }
 
-/* ── Controls bar (wc-*) ── */
-.webapp-controls {
+/* ── Center sections (wc-*) ── */
+.wc-section {
   width: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1px;
-  border-bottom: 1px solid var(--border);
-  background: var(--border);
-  flex-shrink: 0;
-}
-.wc-group {
-  flex: 1 1 0;
-  min-width: 180px;
-  padding: 14px 18px;
+  padding: 16px 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  background: var(--bg-secondary);
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
 }
+.wc-section:last-of-type { border-bottom: none; }
 .wc-label {
   font-size: 10px;
   font-weight: 700;
@@ -2173,27 +2134,28 @@
   gap: 6px;
 }
 .wc-id {
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 700;
   font-family: var(--font-mono);
-  letter-spacing: 3px;
+  letter-spacing: 4px;
   color: var(--accent);
   line-height: 1.2;
 }
 .wc-btns {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 .wc-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 6px;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--bg-secondary);
   color: var(--text-muted);
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
@@ -2206,45 +2168,46 @@
   background: var(--accent-bg);
 }
 .wc-err {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--red);
   background: var(--red-bg);
-  padding: 3px 8px;
-  border-radius: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
   line-height: 1.4;
 }
 .wc-muted {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-muted);
+  font-weight: 500;
 }
 .wc-connect-form {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 .wc-input {
   flex: 1;
   min-width: 0;
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: 10px 14px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
-  font-size: 14px;
+  font-size: 16px;
   font-family: var(--font-mono);
-  letter-spacing: 3px;
+  letter-spacing: 4px;
   outline: none;
   transition: border-color 0.15s;
 }
 .wc-input:focus { border-color: var(--accent); }
 .wc-input:disabled { opacity: 0.5; }
 .wc-go-btn {
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: 10px 20px;
+  border-radius: 8px;
   border: none;
   background: var(--accent);
   color: #fff;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
   transition: opacity 0.15s;
   font-family: inherit;
@@ -2326,7 +2289,7 @@
   display: flex;
   gap: 6px;
   justify-content: center;
-  margin: 8px 0 4px;
+  margin: 12px 0 4px;
 }
 .webapp-tech-pill {
   font-size: 10px;
@@ -2492,48 +2455,13 @@
 
 .webapp-main-center {
   width: 100%;
-  max-width: 420px;
+  max-width: 520px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 20px 32px 40px;
+  gap: 0;
+  padding: 8px 32px 40px;
   margin: auto;
-}
-
-.webapp-mlogo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  margin-bottom: 4px;
-  user-select: none;
-  text-shadow: 0 0 20px rgba(255,255,255,0.8);
-}
-.webapp-mlogo-main {
-  font-family: "Chelsea Market", cursive;
-  font-size: 36px;
-  font-weight: 400;
-  color: var(--accent);
-  letter-spacing: -0.5px;
-  line-height: 1;
-}
-.webapp-mlogo-sub {
-  font-size: 12px;
-  color: var(--text-dim);
-  letter-spacing: 2px;
-}
-
-.webapp-mstatus {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  background: var(--bg-secondary);
-  border-radius: 999px;
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 8px;
 }
 
 /* Drop zone */
