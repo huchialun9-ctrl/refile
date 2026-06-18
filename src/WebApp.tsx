@@ -46,7 +46,7 @@ export default function WebApp() {
   const [transfers, setTransfers] = useState<WebTransfer[]>(() => {
     try {
       const raw = JSON.parse(localStorage.getItem('rf_transfers') || '[]')
-      // Strip stale blob URLs — only valid in current session
+      if (!Array.isArray(raw)) return []
       return raw.map((t: WebTransfer) => ({ ...t, blobUrl: undefined, textContent: undefined }))
     } catch { return [] }
   })
@@ -84,6 +84,7 @@ export default function WebApp() {
 
   useEffect(() => {
     try {
+      if (!Array.isArray(transfers)) return
       const clean = transfers.map(({ blobUrl, textContent, ...rest }) => rest)
       localStorage.setItem('rf_transfers', JSON.stringify(clean))
     } catch {}
